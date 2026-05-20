@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简易 JSON 编辑器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #f5f5f5;
+    padding: 30px;
+    color: #333;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+
+  h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+    color: #1a1a2e;
+  }
+
+  .section-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 300px;
+    padding: 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  textarea:focus { border-color: #4a6cf7; box-shadow: 0 0 0 2px rgba(74,108,247,.15); }
+
+  button {
+    padding: 8px 20px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: .15s;
+  }
+  button:hover { background: #e8e8e8; }
+  button.primary { background: #4a6cf7; color: #fff; border-color: #4a6cf7; }
+  button.primary:hover { background: #3b5de7; }
+  button.success { background: #22c55e; color: #fff; border-color: #22c55e; }
+  button.success:hover { background: #16a34a; }
+
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.4);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 860px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid #eee;
+    flex-shrink: 0;
+  }
+  .modal-header h2 { font-size: 17px; }
+  .modal-header .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    padding: 0 4px;
+  }
+  .modal-header .close-btn:hover { color: #333; }
+  .modal-body {
+    flex: 1;
+    overflow: auto;
+    padding: 20px 24px;
+  }
+  .modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 14px 24px;
+    border-top: 1px solid #eee;
+    flex-shrink: 0;
+  }
+
+  .modal-toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  th {
+    background: #f0f0f5;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  th:last-child { width: 50px; }
+  td { padding: 4px 8px; border-bottom: 1px solid #eee; }
+  td input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+    outline: none;
+    transition: border .15s;
+  }
+  td input:focus { border-color: #4a6cf7; box-shadow: 0 0 0 2px rgba(74,108,247,.15); }
+  td input.readonly { border-color: transparent; background: transparent; cursor: default; }
+  td input.readonly:focus { border-color: #4a6cf7; box-shadow: none; }
+  .del-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: #999;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: .15s;
+  }
+  .del-btn:hover { color: #ef4444; background: #fef2f2; }
+
+  .error-msg {
+    color: #ef4444;
+    font-size: 13px;
+    margin-bottom: 10px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>JSON 编辑器</h1>
+
+  <div class="section-label">
+    <span>JSON 数据</span>
+    <button onclick="openModal()">编辑</button>
+  </div>
+
+  <textarea id="output" readonly></textarea>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>编辑 JSON</h2>
+      <button class="close-btn" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-toolbar">
+        <button class="primary" onclick="addRow()">+ 新增</button>
+        <button onclick="clearRows()">清空表格</button>
+      </div>
+      <div class="error-msg" id="parseError"></div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:45%">KEY</th>
+            <th style="width:45%">VALUE</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal()">取消</button>
+      <button class="success" onclick="saveModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const initialJSON = {
+  "name": "张三",
+  "age": 28,
+  "city": "北京",
+  "email": "zhangsan@example.com",
+  "role": "developer",
+  "active": true,
+  "score": 95.5
+};
+
+document.getElementById('output').value = JSON.stringify(initialJSON, null, 2);
+
+function openModal() {
+  const errorEl = document.getElementById('parseError');
+  errorEl.style.display = 'none';
+
+  // Parse current textarea content
+  const raw = document.getElementById('output').value;
+  let obj;
+  try {
+    obj = JSON.parse(raw);
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+      throw new Error('仅支持单层对象（Object）结构');
+    }
+  } catch (e) {
+    errorEl.textContent = 'JSON 解析失败：' + e.message;
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  // Populate table
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  for (const [key, value] of Object.entries(obj)) {
+    addRow(key, value);
+  }
+
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+function saveModal() {
+  const rows = document.querySelectorAll('#tbody tr');
+  const obj = {};
+
+  for (const tr of rows) {
+    const inputs = tr.querySelectorAll('input');
+    const key = inputs[0].value.trim();
+    const val = inputs[1].value.trim();
+    if (!key) continue;
+
+    let parsed = val;
+    if (val === 'null') parsed = null;
+    else if (val === 'true') parsed = true;
+    else if (val === 'false') parsed = false;
+    else if (val !== '' && !isNaN(Number(val))) parsed = Number(val);
+
+    obj[key] = parsed;
+  }
+
+  document.getElementById('output').value = JSON.stringify(obj, null, 2);
+  closeModal();
+}
+
+function addRow(key, value) {
+  const tbody = document.getElementById('tbody');
+  const tr = document.createElement('tr');
+
+  const keyTd = document.createElement('td');
+  const keyInput = document.createElement('input');
+  keyInput.type = 'text';
+  keyInput.placeholder = 'key';
+  keyInput.value = key !== undefined ? key : '';
+  keyTd.appendChild(keyInput);
+
+  const valTd = document.createElement('td');
+  const valInput = document.createElement('input');
+  valInput.type = 'text';
+  valInput.placeholder = 'value';
+  valInput.value = value !== undefined && value !== null ? String(value) : '';
+  valTd.appendChild(valInput);
+
+  const delTd = document.createElement('td');
+  const delBtn = document.createElement('button');
+  delBtn.className = 'del-btn';
+  delBtn.innerHTML = '&times;';
+  delBtn.title = '删除此行';
+  delBtn.onclick = () => tr.remove();
+  delTd.appendChild(delBtn);
+
+  tr.appendChild(keyTd);
+  tr.appendChild(valTd);
+  tr.appendChild(delTd);
+  tbody.appendChild(tr);
+}
+
+function clearRows() {
+  document.getElementById('tbody').innerHTML = '';
+}
+
+// Enter in value field -> next or new row
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+    const modal = document.getElementById('modal');
+    if (!modal.classList.contains('open')) return;
+    const inputs = document.querySelectorAll('#tbody input');
+    const idx = Array.from(inputs).indexOf(e.target);
+    if (idx !== -1 && idx % 2 === 1) {
+      const nextKey = inputs[idx + 1];
+      if (nextKey) { nextKey.focus(); nextKey.select(); }
+      else addRow();
+    }
+  }
+});
+
+// Click overlay to close
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+</script>
+</body>
+</html>
