@@ -4,28 +4,48 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Structure
 
-Two separate projects at root:
-
-- **`json-editor.html`** — Standalone single-file JSON editor tool. Vanilla HTML/CSS/JS with a modal table UI for editing JSON key-value pairs. No build step needed, open directly in browser.
-- **`vue_project/`** — Vue 3 + Vite 6 scaffold (standard create-vite template). Uses `<script setup>` SFCs. Contains a default HelloWorld counter component.
+```
+/workspace/
+├── projects/
+│   ├── json-editor/
+│   │   └── vue_project/           # Vue 3 + Element Plus JSON 编辑器
+│   │       ├── src/
+│   │       │   ├── components/
+│   │       │   │   └── JsonEditor.vue
+│   │       │   ├── App.vue
+│   │       │   ├── main.js
+│   │       │   └── style.css
+│   │       └── package.json
+│   └── snake-game/
+│       └── index.html             # 贪吃蛇游戏（霓虹赛博朋克风格）
+└── README.md
+```
 
 ## Vue Project Commands
 
 ```bash
 # dev server (port 5173)
-cd vue_project && npm run dev
+cd projects/json-editor/vue_project && npm install && npm run dev
 
 # production build
-cd vue_project && npm run build
+npm run build
 
 # preview production build
-cd vue_project && npm run preview
+npm run preview
 ```
 
 ## Architecture Notes
 
-- **Node version**: v20.17.0 — Vite was downgraded from v8 to v6 for compatibility (Vite 8 requires Node ≥20.19 or ≥22.12).
-- **`vue_project/src/main.js`** mounts `App.vue` into `#app`.
-- **`vue_project/src/App.vue`** is the root component; imports `HelloWorld`.
-- **`vue_project/src/style.css`** has global styles with light/dark `prefers-color-scheme` support.
-- No TypeScript, no routing, no state management, no component library, no tests configured.
+- **Node version**: v20.17.0 (Vite 6 requires Node ≥20.19)
+- **Vue version**: 3.5.34
+- **UI Library**: Element Plus 2.14.0
+- **Build tool**: Vite 6.4.2
+
+## Snake Game
+
+Single HTML file at `projects/snake-game/index.html`. Open directly in browser - no dependencies.
+
+Controls:
+- SPACE: Start/Restart
+- P: Pause
+- Arrow keys or WASD: Move
