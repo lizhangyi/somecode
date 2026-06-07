@@ -178,14 +178,23 @@
             minSpeed: 50,
             speedDecrement: 10,
             speedIncreaseScore: 50,
+            portalEnabled: true,
+            portalPairs: 1,
+            portalCooldown: 300,
             colors: {
                 snake: '#00ff88',
                 snakeHead: '#00ffaa',
                 food: '#ff0080',
                 grid: '#1a1a2e',
-                background: '#0a0a1a'
+                background: '#0a0a1a',
+                portal: '#9d00ff',
+                portalGlow: '#ff00ff'
             }
         };
+
+        // 传送门
+        const portals = [];
+        let portalTimer = 0;
 
         // 游戏状态
         const GAME_STATE = {
@@ -248,6 +257,11 @@
             currentSpeed = CONFIG.baseSpeed;
             lastSpeedIncreaseScore = 0;
             
+            // 重置传送门
+            portals.length = 0;
+            portalTimer = 0;
+            generatePortals();
+            
             // 生成食物
             generateFood();
             
@@ -259,6 +273,75 @@
             // 启动渲染循环
             requestAnimationFrame(render);
         }
+        
+        // 生成传送门
+        function generatePortals() {
+            if (!CONFIG.portalEnabled) return;
+            
+            portals.length = 0;
+            
+            for (let i = 0; i < CONFIG.portalPairs; i++) {
+                let pointA, pointB;
+                let attempts = 0;
+                
+                do {
+                    pointA = getRandomEmptyPosition();
+                    attempts++;
+                } while (attempts < 100 && (
+                    isOnSnake(pointA.x, pointA.y) ||
+                    isOnFood(pointA.x, pointA.y)
+                ));
+                
+                if (attempts >= 100) continue;
+                
+                attempts = 0;
+                do {
+                    pointB = getRandomEmptyPosition();
+                    attempts++;
+                } while (attempts < 100 && (
+                    isOnSnake(pointB.x, pointB.y) ||
+                    isOnFood(pointB.x, pointB.y) ||
+                    (pointA.x === pointB.x && pointA.y === pointB.y) ||
+                    (Math.abs(pointB.x - pointA.x) + Math.abs(pointB.y - pointA.y) < 5)
+                ));
+                
+                if (attempts < 100) {
+                    portals.push({
+                        pointA: pointA,
+                        pointB: pointB,
+                        spiralA: 0,
+                        spiralB: Math.PI,
+                        pulse: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+        }
+        
+        // 获取随机空位置
+        function getRandomEmptyPosition() {
+            return {
+                x: Math.floor(Math.random() * CONFIG.gridSize),
+                y: Math.floor(Math.random() * CONFIG.gridSize)
+            };
+        }
+        
+        // 检查是否在蛇身上
+        function isOnSnake(x, y) {
+            return snake.some(seg => seg.x === x && seg.y === y);
+        }
+        
+        // 检查是否在食物上
+        function isOnFood(x, y) {
+            return food.x === x && food.y === y;
+        }
+        
+        // 检查是否在传送门上
+        function isOnPortal(x, y) {
+            return portals.some(p => 
+                (p.pointA.x === x && p.pointA.y === y) ||
+                (p.pointB.x === x && p.pointB.y === y)
+            );
+        }
 
         // 生成食物
         function generateFood() {
@@ -266,7 +349,8 @@
             while (!valid) {
                 food.x = Math.floor(Math.random() * CONFIG.gridSize);
                 food.y = Math.floor(Math.random() * CONFIG.gridSize);
-                valid = !snake.some(seg => seg.x === food.x && seg.y === food.y);
+                valid = !snake.some(seg => seg.x === food.x && seg.y === food.y) &&
+                        !isOnPortal(food.x, food.y);
             }
         }
 
@@ -295,7 +379,42 @@
                 head.y = 0;
             }
             
-            // 碰撞检测 - 自身
+            // 传送门检测
+            let teleported = false;
+            for (const portal of portals) {
+                // 从 pointA 传送到 pointB
+                if (head.x === portal.pointA.x && head.y === portal.pointA.y) {
+                    head.x = portal.pointB.x + direction.x;
+                    head.y = portal.pointB.y + direction.y;
+                    teleported = true;
+                }
+                // 从 pointB 传送到 pointA
+                else if (head.x === portal.pointB.x && head.y === portal.pointB.y) {
+                    head.x = portal.pointA.x + direction.x;
+                    head.y = portal.pointA.y + direction.y;
+                    teleported = true;
+                }
+                
+                if (teleported) {
+                    // 处理穿墙
+                    if (head.x < 0) {
+                        head.x = CONFIG.gridSize - 1;
+                    } else if (head.x >= CONFIG.gridSize) {
+                        head.x = 0;
+                    }
+                    if (head.y < 0) {
+                        head.y = CONFIG.gridSize - 1;
+                    } else if (head.y >= CONFIG.gridSize) {
+                        head.y = 0;
+                    }
+                    
+                    // 传送后刷新位置
+                    generatePortals();
+                    break;
+                }
+            }
+            
+            // 碰撞检测 - 自身（传送后可能撞到自己）
             if (snake.some(seg => seg.x === head.x && seg.y === head.y)) {
                 gameOver();
                 return;
@@ -389,6 +508,9 @@
             // 绘制网格
             drawGrid();
             
+            // 绘制传送门
+            drawPortals();
+            
             // 绘制食物
             drawFood();
             
@@ -397,6 +519,13 @@
             
             // 食物脉冲动画
             foodPulse += 0.1;
+            
+            // 传送门螺旋和脉冲动画
+            portals.forEach(p => {
+                p.pulse += 0.08;
+                p.spiralA += 0.15;
+                p.spiralB += 0.15;
+            });
             
             if (gameState === GAME_STATE.PLAYING) {
                 requestAnimationFrame(render);
@@ -420,6 +549,98 @@
                 ctx.lineTo(canvas.width, pos);
                 ctx.stroke();
             }
+        }
+        
+        // 绘制传送门
+        function drawPortals() {
+            portals.forEach(portal => {
+                // 绘制两个传送门点（双向）
+                drawPortalPoint(portal.pointA, portal.pulse, portal.spiralA);
+                drawPortalPoint(portal.pointB, portal.pulse + Math.PI * 0.5, portal.spiralB);
+                
+                // 绘制连接线（虚线效果）
+                drawPortalConnection(portal);
+            });
+        }
+        
+        // 绘制传送门点（带螺旋效果）
+        function drawPortalPoint(pos, pulse, spiral) {
+            const x = pos.x * CONFIG.cellSize + CONFIG.cellSize / 2;
+            const y = pos.y * CONFIG.cellSize + CONFIG.cellSize / 2;
+            const baseRadius = CONFIG.cellSize / 2 - 4;
+            const pulseRadius = baseRadius + Math.sin(pulse) * 2;
+            
+            // 发光效果
+            ctx.shadowColor = CONFIG.colors.portalGlow;
+            ctx.shadowBlur = 15 + Math.sin(pulse) * 8;
+            
+            // 螺旋效果
+            drawSpiral(x, y, spiral, pulseRadius);
+            
+            // 外圈
+            ctx.strokeStyle = CONFIG.colors.portal;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, pulseRadius + 3, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // 内圈
+            ctx.fillStyle = 'rgba(157, 0, 255, 0.6)';
+            ctx.beginPath();
+            ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+        }
+        
+        // 绘制螺旋效果
+        function drawSpiral(x, y, spiralAngle, radius) {
+            const lines = 3;
+            const turns = 2;
+            
+            for (let i = 0; i < lines; i++) {
+                const lineAngle = (i / lines) * Math.PI * 2 + spiralAngle;
+                ctx.strokeStyle = `rgba(255, 0, 128, ${0.4 + (i / lines) * 0.2})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let t = 0; t < turns * Math.PI * 2; t += 0.1) {
+                    const currentAngle = lineAngle + t;
+                    const r = (t / (turns * Math.PI * 2)) * radius;
+                    const px = x + Math.cos(currentAngle) * r;
+                    const py = y + Math.sin(currentAngle) * r;
+                    
+                    if (t === 0) {
+                        ctx.moveTo(px, py);
+                    } else {
+                        ctx.lineTo(px, py);
+                    }
+                }
+                ctx.stroke();
+            }
+        }
+        
+        // 绘制传送门连接
+        function drawPortalConnection(portal) {
+            const x1 = portal.pointA.x * CONFIG.cellSize + CONFIG.cellSize / 2;
+            const y1 = portal.pointA.y * CONFIG.cellSize + CONFIG.cellSize / 2;
+            const x2 = portal.pointB.x * CONFIG.cellSize + CONFIG.cellSize / 2;
+            const y2 = portal.pointB.y * CONFIG.cellSize + CONFIG.cellSize / 2;
+            
+            ctx.shadowColor = CONFIG.colors.portal;
+            ctx.shadowBlur = 5;
+            
+            // 虚线连接
+            ctx.strokeStyle = 'rgba(157, 0, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.shadowBlur = 0;
         }
 
         // 绘制食物
