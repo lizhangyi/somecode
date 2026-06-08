@@ -227,7 +227,7 @@
         </div>
         <canvas id="gameCanvas"></canvas>
         <div class="controls">
-            <kbd>SPACE</kbd> 开始/重新开始 &nbsp;&nbsp;
+            <kbd>SPACE</kbd> 开始/暂停/重新开始 &nbsp;&nbsp;
             <kbd>P</kbd> 暂停 &nbsp;&nbsp;
             <kbd>方向键</kbd> 或 <kbd>WASD</kbd> 移动
         </div>
@@ -638,6 +638,29 @@
             }
         }
 
+        // 绘制暂停遮罩
+        function drawPauseOverlay() {
+            // 半透明背景
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // PAUSE文字
+            ctx.textAlign = 'center';
+            ctx.fillStyle = CONFIG.colors.snake;
+            ctx.font = '24px "Press Start 2P"';
+            ctx.shadowColor = CONFIG.colors.snake;
+            ctx.shadowBlur = 30;
+            ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2 - 20);
+            
+            // 提示文字
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.shadowBlur = 10;
+            ctx.fillText('按空格键继续', canvas.width / 2, canvas.height / 2 + 30);
+            
+            ctx.shadowBlur = 0;
+        }
+
         // 渲染 - 开始界面
         function renderStartScreen() {
             ctx.fillStyle = CONFIG.colors.background;
@@ -689,9 +712,13 @@
                 p.spiralB += 0.15;
             });
             
-            if (gameState === GAME_STATE.PLAYING) {
-                requestAnimationFrame(render);
+            // 如果暂停，显示PAUSE文字
+            if (gameState === GAME_STATE.PAUSED) {
+                drawPauseOverlay();
             }
+            
+            // 继续渲染循环（包括暂停状态）
+            requestAnimationFrame(render);
         }
 
         // 绘制网格
@@ -900,6 +927,9 @@
                         if (gameState === GAME_STATE.IDLE || 
                             gameState === GAME_STATE.GAME_OVER) {
                             startGame();
+                        } else if (gameState === GAME_STATE.PLAYING || 
+                                   gameState === GAME_STATE.PAUSED) {
+                            togglePause();
                         }
                         break;
                     case 'p':
