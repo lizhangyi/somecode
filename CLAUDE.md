@@ -16,8 +16,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │   │       │   ├── main.js
 │   │       │   └── style.css
 │   │       └── package.json
-│   └── snake-game/
-│       └── index.html             # 贪吃蛇游戏（霓虹赛博朋克风格）
+│   ├── snake-game/
+│   │   └── index.html             # 贪吃蛇游戏（霓虹赛博朋克风格）
+│   └── data-table/
+│       └── index.html             # 数据表格（表头吸顶 + 横向滚动）
 └── README.md
 ```
 
@@ -49,3 +51,12 @@ Controls:
 - SPACE: Start/Restart
 - P: Pause
 - Arrow keys or WASD: Move
+
+## Data Table
+
+Single HTML file at `projects/data-table/index.html`. Open directly in browser - no dependencies.
+
+Features:
+- Sticky header on page scroll
+- Horizontal scroll for wide tables
+- Synchronized column widths between header and body

@@ -25,7 +25,7 @@ npm run dev
 
 ### 2. 贪吃蛇游戏
 
-**路径**: `projects/snake-game/`  
+**路径**: `projects/snake-game/`
 **技术栈**: 原生 HTML/CSS/JavaScript + Canvas API
 
 **玩法**:
@@ -34,6 +34,21 @@ npm run dev
 - P 键暂停
 
 **运行方式**: 直接用浏览器打开 `projects/snake-game/index.html`
+
+---
+
+### 3. 数据表格
+
+**路径**: `projects/data-table/`
+**技术栈**: 原生 HTML/CSS/JavaScript
+
+**功能**:
+- 表格表头吸顶效果（页面滚动时表头固定在屏幕顶部）
+- 表格内容较宽时支持横向滚动
+- 表头与内容列宽同步对齐
+- 支持多个表格同时存在
+
+**运行方式**: 直接用浏览器打开 `projects/data-table/index.html`
 
 ---
 
@@ -46,4 +61,4 @@ npm run dev
 
 ---
 
-*最后更新: 2026-06-07*
+*最后更新: 2026-06-10*

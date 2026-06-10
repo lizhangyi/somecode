@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据表格</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .page-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .intro-text {
+            line-height: 1.8;
+            color: #666;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+        }
+
+        .table-wrapper {
+            margin-bottom: 40px;
+        }
+
+        .table-header {
+            background: #fafafa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .table-header::-webkit-scrollbar {
+            display: none;
+        }
+
+        .table-body {
+            overflow-x: auto;
+            max-height: 60vh;
+            background: #fff;
+        }
+
+        table {
+            width: 2000px;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e8e8e8;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        tr:hover td {
+            background: #fafafa;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-content">
+        <h1>数据表格</h1>
+        <div class="intro-text">
+            这是一段用于撑开页面的示例文字。当页面滚动时，表格的表头会吸顶固定在屏幕顶部。
+            表头固定后，表格内容会继续向上滚动，直到整个表格滚出屏幕。
+            <br><br>
+            请向下滚动页面查看效果。
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper1">
+            <div class="table-header">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>姓名</th>
+                            <th>邮箱</th>
+                            <th>手机号</th>
+                            <th>部门</th>
+                            <th>职位</th>
+                            <th>入职日期</th>
+                            <th>城市</th>
+                            <th>省份</th>
+                            <th>国家</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="table-body">
+                <table>
+                    <tbody id="tableBody1"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="intro-text" style="margin-top: 40px;">
+            第二张表格，继续向下滚动查看效果。
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper2">
+            <div class="table-header">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>姓名</th>
+                            <th>邮箱</th>
+                            <th>手机号</th>
+                            <th>部门</th>
+                            <th>职位</th>
+                            <th>入职日期</th>
+                            <th>城市</th>
+                            <th>省份</th>
+                            <th>国家</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="table-body">
+                <table>
+                    <tbody id="tableBody2"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="intro-text" style="margin-top: 40px;">
+            第三张表格，马上就要到页面底部了。
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper3">
+            <div class="table-header">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>姓名</th>
+                            <th>邮箱</th>
+                            <th>手机号</th>
+                            <th>部门</th>
+                            <th>职位</th>
+                            <th>入职日期</th>
+                            <th>城市</th>
+                            <th>省份</th>
+                            <th>国家</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="table-body">
+                <table>
+                    <tbody id="tableBody3"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="intro-text" style="margin-top: 40px;">
+            第四张表格。
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper4">
+            <div class="table-header">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>姓名</th>
+                            <th>邮箱</th>
+                            <th>手机号</th>
+                            <th>部门</th>
+                            <th>职位</th>
+                            <th>入职日期</th>
+                            <th>城市</th>
+                            <th>省份</th>
+                            <th>国家</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="table-body">
+                <table>
+                    <tbody id="tableBody4"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="intro-text" style="margin-top: 40px;">
+            第五张表格。
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper5">
+            <div class="table-header">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>姓名</th>
+                            <th>邮箱</th>
+                            <th>手机号</th>
+                            <th>部门</th>
+                            <th>职位</th>
+                            <th>入职日期</th>
+                            <th>城市</th>
+                            <th>省份</th>
+                            <th>国家</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="table-body">
+                <table>
+                    <tbody id="tableBody5"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="intro-text" style="margin-top: 40px;">
+            第六张表格。
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper6">
+            <div class="table-header">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>姓名</th>
+                            <th>邮箱</th>
+                            <th>手机号</th>
+                            <th>部门</th>
+                            <th>职位</th>
+                            <th>入职日期</th>
+                            <th>城市</th>
+                            <th>省份</th>
+                            <th>国家</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="table-body">
+                <table>
+                    <tbody id="tableBody6"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="intro-text" style="margin-top: 40px;">
+            第七张表格。
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper7">
+            <div class="table-header">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>姓名</th>
+                            <th>邮箱</th>
+                            <th>手机号</th>
+                            <th>部门</th>
+                            <th>职位</th>
+                            <th>入职日期</th>
+                            <th>城市</th>
+                            <th>省份</th>
+                            <th>国家</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="table-body">
+                <table>
+                    <tbody id="tableBody7"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="intro-text" style="margin-top: 40px;">
+            页面底部。
+        </div>
+    </div>
+
+    <script>
+        const initialData = [
+            { id: 1, name: '张三', email: 'zhangsan@example.com', phone: '13800138000', department: '技术部', position: '前端工程师', entryDate: '2023-01-15', city: '北京', province: '北京', country: '中国', status: '在职' },
+            { id: 2, name: '李四', email: 'lisi@example.com', phone: '13800138001', department: '产品部', position: '产品经理', entryDate: '2022-06-20', city: '上海', province: '上海', country: '中国', status: '在职' },
+            { id: 3, name: '王五', email: 'wangwu@example.com', phone: '13800138002', department: '设计部', position: 'UI设计师', entryDate: '2023-03-10', city: '深圳', province: '广东', country: '中国', status: '在职' },
+            { id: 4, name: '赵六', email: 'zhaoliu@example.com', phone: '13800138003', department: '市场部', position: '市场专员', entryDate: '2021-09-01', city: '广州', province: '广东', country: '中国', status: '在职' },
+            { id: 5, name: '钱七', email: 'qianqi@example.com', phone: '13800138004', department: '技术部', position: '后端工程师', entryDate: '2022-11-05', city: '杭州', province: '浙江', country: '中国', status: '在职' },
+            { id: 6, name: '孙八', email: 'sunba@example.com', phone: '13800138005', department: '人力资源', position: 'HR主管', entryDate: '2020-04-18', city: '南京', province: '江苏', country: '中国', status: '在职' },
+            { id: 7, name: '周九', email: 'zhoujiu@example.com', phone: '13800138006', department: '财务部', position: '财务会计', entryDate: '2023-02-28', city: '成都', province: '四川', country: '中国', status: '试用期' },
+            { id: 8, name: '吴十', email: 'wushi@example.com', phone: '13800138007', department: '技术部', position: '架构师', entryDate: '2019-07-12', city: '武汉', province: '湖北', country: '中国', status: '在职' },
+            { id: 9, name: '郑十一', email: 'zhengshiyi@example.com', phone: '13800138008', department: '运营部', position: '运营专员', entryDate: '2022-08-22', city: '西安', province: '陕西', country: '中国', status: '在职' },
+            { id: 10, name: '冯十二', email: 'fengshier@example.com', phone: '13800138009', department: '客服部', position: '客服主管', entryDate: '2021-12-01', city: '重庆', province: '重庆', country: '中国', status: '在职' }
+        ];
+
+        function renderTables() {
+            const tables = [
+                { id: 'tableBody1', data: initialData },
+                { id: 'tableBody2', data: initialData },
+                { id: 'tableBody3', data: initialData },
+                { id: 'tableBody4', data: initialData },
+                { id: 'tableBody5', data: initialData },
+                { id: 'tableBody6', data: initialData },
+                { id: 'tableBody7', data: initialData }
+            ];
+
+            tables.forEach(({ id, data }) => {
+                const tbody = document.getElementById(id);
+                tbody.innerHTML = data.map(row => `
+                    <tr>
+                        <td>${row.id}</td>
+                        <td>${row.name}</td>
+                        <td>${row.email}</td>
+                        <td>${row.phone}</td>
+                        <td>${row.department}</td>
+                        <td>${row.position}</td>
+                        <td>${row.entryDate}</td>
+                        <td>${row.city}</td>
+                        <td>${row.province}</td>
+                        <td>${row.country}</td>
+                        <td>${row.status}</td>
+                    </tr>
+                `).join('');
+            });
+        }
+
+        function syncHorizontalScroll() {
+            const tableWrappers = document.querySelectorAll('.table-wrapper');
+
+            tableWrappers.forEach(wrapper => {
+                const header = wrapper.querySelector('.table-header');
+                const body = wrapper.querySelector('.table-body');
+
+                body.addEventListener('scroll', () => {
+                    header.scrollLeft = body.scrollLeft;
+                });
+            });
+        }
+
+        function syncColumnWidths() {
+            const tableWrappers = document.querySelectorAll('.table-wrapper');
+
+            tableWrappers.forEach(wrapper => {
+                const headerTable = wrapper.querySelector('.table-header table');
+                const bodyTable = wrapper.querySelector('.table-body table');
+                const headerCells = headerTable.querySelectorAll('th');
+                const bodyCells = bodyTable.querySelectorAll('tbody tr:first-child td');
+
+                headerCells.forEach((th, i) => {
+                    const cellWidth = bodyCells[i].offsetWidth;
+                    th.style.width = cellWidth + 'px';
+                    th.style.minWidth = cellWidth + 'px';
+                });
+            });
+        }
+
+        renderTables();
+        syncHorizontalScroll();
+
+        window.addEventListener('load', syncColumnWidths);
+    </script>
+</body>
+</html>
