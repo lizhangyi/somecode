@@ -2,32 +2,39 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <!-- viewport 确保移动端适配，宽度等于设备宽度，初始缩放为 1 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据表格</title>
     <style>
+        /* 全局样式重置：清除默认外边距和内边距
+           box-sizing: border-box 使元素的宽高包含 padding 和 border，方便布局计算 */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        /* body 基础样式：设置系统字体（跨平台兼容）、浅灰色背景、最小高度一屏 */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: #f5f5f5;
             min-height: 100vh;
         }
 
+        /* 页面内容容器：居中显示，最大宽度 1200px，四周留白 20px */
         .page-content {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
 
+        /* 一级标题样式 */
         h1 {
             margin-bottom: 20px;
             color: #333;
         }
 
+        /* 介绍文字卡片样式：行高 1.8 便于阅读，白色卡片带圆角 */
         .intro-text {
             line-height: 1.8;
             color: #666;
@@ -37,10 +44,16 @@
             border-radius: 8px;
         }
 
+        /* 表格整体容器：与下一个元素保持 40px 的间距 */
         .table-wrapper {
             margin-bottom: 40px;
         }
 
+        /* 表头容器 —— 吸顶核心实现：
+           position: sticky + top: 0 实现当滚动到屏幕顶部时吸附固定
+           overflow-x: auto 保证表头可横向滚动（与表体同步）
+           scrollbar-width: none 隐藏 Firefox 下的滚动条（表体已有滚动条，表头不需要重复）
+           z-index: 10 使吸顶表头覆盖在表格内容之上 */
         .table-header {
             background: #fafafa;
             position: sticky;
@@ -50,21 +63,30 @@
             scrollbar-width: none;
         }
 
+        /* 隐藏 Chrome/Safari 下表头的横向滚动条，避免出现双滚动条 */
         .table-header::-webkit-scrollbar {
             display: none;
         }
 
+        /* 表体容器：
+           overflow-x: auto 实现横向滚动（表格宽度超过容器时出现滚动条）
+           max-height: 60vh 限制表格高度为视口高度的 60%，超出时出现纵向滚动
+           表头吸顶 + 表体独立滚动，共同构成「滚动时表头固定」的效果 */
         .table-body {
             overflow-x: auto;
             max-height: 60vh;
             background: #fff;
         }
 
+        /* 表格样式：
+           width: 2000px 固定宽度，故意超出屏幕宽度以演示横向滚动
+           border-collapse: collapse 使单元格边框合并为一条线 */
         table {
             width: 2000px;
             border-collapse: collapse;
         }
 
+        /* 表头单元格样式：加粗、浅灰色底、底部粗边框分隔 */
         th {
             padding: 14px 16px;
             text-align: left;
@@ -74,6 +96,7 @@
             white-space: nowrap;
         }
 
+        /* 表体单元格样式：细边框分隔，内容不换行（保证横向滚动效果） */
         td {
             padding: 12px 16px;
             border-bottom: 1px solid #f0f0f0;
@@ -81,6 +104,7 @@
             white-space: nowrap;
         }
 
+        /* 行悬停效果：鼠标悬停时整行背景变色，提升可读性 */
         tr:hover td {
             background: #fafafa;
         }
@@ -315,6 +339,8 @@
     </div>
 
     <script>
+        // 表格初始数据：包含员工的基本信息（10 条示例记录）
+        // 每列字段都与 HTML 中 <th> 的列名一一对应
         const initialData = [
             { id: 1, name: '张三', email: 'zhangsan@example.com', phone: '13800138000', department: '技术部', position: '前端工程师', entryDate: '2023-01-15', city: '北京', province: '北京', country: '中国', status: '在职' },
             { id: 2, name: '李四', email: 'lisi@example.com', phone: '13800138001', department: '产品部', position: '产品经理', entryDate: '2022-06-20', city: '上海', province: '上海', country: '中国', status: '在职' },
@@ -328,6 +354,8 @@
             { id: 10, name: '冯十二', email: 'fengshier@example.com', phone: '13800138009', department: '客服部', position: '客服主管', entryDate: '2021-12-01', city: '重庆', province: '重庆', country: '中国', status: '在职' }
         ];
 
+        // 渲染所有表格：根据预设的 id 列表，为每个 <tbody> 填充数据行
+        // 使用模板字符串构建 HTML，比 createElement 更简洁直观
         function renderTables() {
             const tables = [
                 { id: 'tableBody1', data: initialData },
@@ -359,6 +387,9 @@
             });
         }
 
+        // 同步表头与表体的横向滚动：
+        // 表头和表体是两个独立的容器（为了实现表头吸顶而分离）
+        // 当用户横向滚动表体时，将 scrollLeft 同步到表头容器，使表头和表体保持视觉对齐
         function syncHorizontalScroll() {
             const tableWrappers = document.querySelectorAll('.table-wrapper');
 
@@ -372,6 +403,10 @@
             });
         }
 
+        // 同步列宽：
+        // 由于表头和表体是两个独立的 table，浏览器无法自动对齐列宽
+        // 需要读取表体第一行各单元格的实际宽度（offsetWidth），
+        // 然后将相同的宽度值应用到表头的 <th> 上，确保列与列上下对齐
         function syncColumnWidths() {
             const tableWrappers = document.querySelectorAll('.table-wrapper');
 
@@ -389,9 +424,10 @@
             });
         }
 
+        // 页面初始化执行：先渲染表格，再绑定横向滚动同步
+        // 注意 syncColumnWidths 需要在 window.onload 触发，因为 offsetWidth 需要字体和图片完全加载后才准确
         renderTables();
         syncHorizontalScroll();
-
         window.addEventListener('load', syncColumnWidths);
     </script>
 </body>
