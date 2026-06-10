@@ -96,35 +96,23 @@
            以下样式控制吸顶状态下的外观。 */
 
         .sticky-header-wrapper {
-            position: fixed;
-            top: 0;
-            /* left 与 width 由 JS 动态同步，保持与原表格对齐 */
+            /* 视觉样式由 CSS 控制，定位属性由 JS 内联设置 */
             background: #fafafa;
             border-bottom: 2px solid #e8e8e8;
-            overflow: hidden; /* 吸顶表头本身不出现滚动条 */
-            z-index: 1000;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            display: none;
         }
 
-        /* 激活状态时显示吸顶表头 */
-        .sticky-header-wrapper.active {
-            display: block;
-        }
-
-        /* 吸顶表头中的 table：去掉顶部边框，与原表样式一致 */
         .sticky-header-wrapper table {
-            /* 表格宽度需由 JS 同步为原 table 的宽度 */
             border-collapse: collapse;
             margin: 0;
         }
 
         .sticky-header-wrapper thead th {
-            /* 吸顶状态下，不需要 sticky（外层已经 fixed）*/
             position: static;
         }
     </style>
 </head>
+
 <body>
     <div class="page-content">
         <h1>数据表格</h1>
@@ -199,6 +187,7 @@
         </div>
     </div>
 
+    <script src="sticky-table.js"></script>
     <script>
         // ========== 各表格独立配置（列结构、数据量均不同）==========
         const tableConfigs = {
@@ -316,98 +305,14 @@
             });
         }
 
-        // ========== 表头吸顶核心逻辑（JS + fixed）==========
-        // 为每个 table-wrapper 维护：
-        //   - 一份克隆的吸顶表头 (.sticky-header-wrapper)
-        //   - 其 left/width/scrollLeft 需要与原 table 同步
-        // 页面滚动时，判断每个表格是否处于"需要吸顶"的区域：
-        //   表格顶部 < 0 （已滚出屏幕上方）
-        //   && 表格底部 > 0 （仍有内容在屏幕内）→ 显示吸顶表头
-        //   否则 → 隐藏吸顶表头
-
-        function initStickyHeaders() {
-            const wrappers = document.querySelectorAll('.table-wrapper');
-
-            wrappers.forEach(wrapper => {
-                // 1) 为每个表格创建克隆的吸顶表头
-                const originalThead = wrapper.querySelector('thead');
-                const originalTable = wrapper.querySelector('table');
-                const tableContainer = wrapper.querySelector('.table-container');
-
-                // 创建吸顶表头容器（固定在屏幕顶部）
-                const stickyWrapper = document.createElement('div');
-                stickyWrapper.className = 'sticky-header-wrapper';
-
-                // 克隆 table 和 thead 的结构（保持列宽对齐的基础）
-                const stickyTable = document.createElement('table');
-                stickyTable.appendChild(originalThead.cloneNode(true));
-                stickyWrapper.appendChild(stickyTable);
-
-                // 把吸顶表头放入 wrapper 中（便于定位查找）
-                wrapper.appendChild(stickyWrapper);
-
-                // 2) 定义：更新吸顶表头的位置和尺寸
-                function updateStickyHeader() {
-                    const wrapperRect = wrapper.getBoundingClientRect();
-                    const containerRect = tableContainer.getBoundingClientRect();
-
-                    // 同步吸顶表头的 left 与 table 容器对齐
-                    stickyWrapper.style.left = containerRect.left + 'px';
-                    // 同步吸顶表头的宽度（只显示容器内可见部分的宽度）
-                    stickyWrapper.style.width = containerRect.width + 'px';
-
-                    // 同步吸顶表头的表格宽度（保证列宽和原表一致）
-                    stickyTable.style.width = originalTable.offsetWidth + 'px';
-                    // 同步列宽：把原表头每列的宽度写到吸顶表头对应列
-                    const originalThs = originalThead.querySelectorAll('th');
-                    const stickyThs = stickyWrapper.querySelectorAll('th');
-                    originalThs.forEach((th, i) => {
-                        if (stickyThs[i]) {
-                            stickyThs[i].style.width = th.offsetWidth + 'px';
-                            stickyThs[i].style.minWidth = th.offsetWidth + 'px';
-                        }
-                    });
-
-                    // 同步横向滚动位置（用户在表格内水平滚动时，吸顶表头也要跟着移）
-                    stickyWrapper.scrollLeft = tableContainer.scrollLeft;
-                }
-
-                // 3) 定义：判断是否显示吸顶表头
-                function checkSticky() {
-                    const wrapperRect = wrapper.getBoundingClientRect();
-                    const tableHeight = wrapperRect.height;
-                    const tableTop = wrapperRect.top;
-                    const tableBottom = tableTop + tableHeight;
-
-                    // 条件：表格顶部已越过屏幕上方，且底部仍在屏幕内
-                    // 即：表格部分在屏幕内，表头位置被滚走了 → 需要显示吸顶表头
-                    if (tableTop < 0 && tableBottom > 0) {
-                        stickyWrapper.classList.add('active');
-                        updateStickyHeader();
-                    } else {
-                        stickyWrapper.classList.remove('active');
-                    }
-                }
-
-                // 4) 绑定事件监听
-                window.addEventListener('scroll', checkSticky, { passive: true });
-                window.addEventListener('resize', checkSticky);
-                // 表格横向滚动时同步吸顶表头的 scrollLeft
-                tableContainer.addEventListener('scroll', () => {
-                    if (stickyWrapper.classList.contains('active')) {
-                        stickyWrapper.scrollLeft = tableContainer.scrollLeft;
-                    }
-                });
-
-                // 首次检查
-                checkSticky();
-            });
-        }
-
         // ========== 初始化 ==========
         renderTables();
-        // 等字体/布局就绪后再初始化吸顶（确保 offsetWidth 计算准确）
-        window.addEventListener('load', initStickyHeaders);
+
+        // 使用 StickyTable 插件实现表头吸顶
+        // 每个 .table-wrapper 独立创建实例，互不干扰
+        document.querySelectorAll('.table-wrapper').forEach(el => {
+            new StickyTable(el);
+        });
     </script>
 </body>
 </html>
