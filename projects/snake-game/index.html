@@ -24,7 +24,13 @@
       <button class="theme-btn neon-green active" data-theme="neon-green" title="霓虹绿"></button>
       <button class="theme-btn neon-blue" data-theme="neon-blue" title="霓虹蓝"></button>
       <button class="theme-btn fire-red" data-theme="fire-red" title="火焰红"></button>
-      <button class="mute-btn" id="muteBtn" title="音效开关">🔊</button>
+      <div class="volume-wrapper">
+        <button class="mute-btn" id="muteBtn" title="音效开关">🔊</button>
+        <div class="volume-popup" id="volumePopup">
+          <input type="range" id="volumeSlider" min="0" max="100" value="50" class="volume-slider">
+          <span class="volume-label" id="volumeLabel">50</span>
+        </div>
+      </div>
       <button class="history-open-btn" id="historyBtn" title="历史得分">📊</button>
     </div>
     <div class="touch-hint mt-[15px] text-[10px]" style="color: var(--color-neon-pink);">

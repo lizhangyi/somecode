@@ -9,6 +9,7 @@ import {
   setGameLoop,
 } from './state'
 import { SoundFX } from './sound'
+import { BGM } from './bgm'
 import { renderGameFrame, renderGameOver } from './renderer'
 import { saveHistory } from './history'
 import {
@@ -108,11 +109,13 @@ export function startGame() {
   setGameLoop(setInterval(update, currentSpeed))
   requestAnimationFrame(renderGameFrame)
   SoundFX.playStart()
+  BGM.start()
 }
 
 export function gameOver() {
   setGameState('game_over')
   SoundFX.playDeath()
+  BGM.stop()
   if (gameLoop) clearInterval(gameLoop)
 
   if (score > highScore) {
@@ -131,6 +134,7 @@ export function activateBoost() {
   setBoosting(true)
   setBoostTicks(BOOST_TICKS)
   boostTrail.length = 0
+  SoundFX.playBoost()
   if (gameLoop) clearInterval(gameLoop)
   setGameLoop(setInterval(update, BOOST_INTERVAL))
 }
@@ -146,10 +150,12 @@ export function togglePause() {
   if (gameState === 'playing') {
     setGameState('paused')
     SoundFX.playPause()
+    BGM.stop()
     if (gameLoop) clearInterval(gameLoop)
   } else if (gameState === 'paused') {
     setGameState('playing')
     SoundFX.playResume()
+    BGM.start()
     setGameLoop(setInterval(update, boosting ? BOOST_INTERVAL : currentSpeed))
   }
 }
@@ -164,7 +170,9 @@ export function update() {
   }
 
   // Direction change
-  setDirection({ ...nextDirection })
+  const wasTurning = direction.x !== nextDirection.x || direction.y !== nextDirection.y
+  setDirection(nextDirection)
+  if (wasTurning) SoundFX.playTurn()
 
   // New head position
   let head: Point = {

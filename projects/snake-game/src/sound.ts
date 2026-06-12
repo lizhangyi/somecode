@@ -1,13 +1,26 @@
 export const SoundFX = {
   ctx: null as AudioContext | null,
+  masterGain: null as GainNode | null,
   muted: false,
+  volume: 0.5,
 
   init() {
     if (this.ctx) return
     try {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      this.masterGain = this.ctx.createGain()
+      this.masterGain.gain.value = this.muted ? 0 : this.volume
+      this.masterGain.connect(this.ctx.destination)
     } catch {
       console.log('Web Audio API 不可用')
+    }
+  },
+
+  setVolume(v: number) {
+    this.volume = v
+    localStorage.setItem('snake_volume', String(v))
+    if (this.masterGain && !this.muted) {
+      this.masterGain.gain.value = v
     }
   },
 
@@ -16,8 +29,20 @@ export const SoundFX = {
     return this.ctx
   },
 
+  getDest(): AudioNode {
+    this.init()
+    return this.masterGain || this.ctx!.destination
+  },
+
+  loadVolume() {
+    this.volume = Number(localStorage.getItem('snake_volume')) || 0.5
+  },
+
   toggleMute() {
     this.muted = !this.muted
+    if (this.masterGain) {
+      this.masterGain.gain.value = this.muted ? 0 : this.volume
+    }
     localStorage.setItem('snake_muted', this.muted ? '1' : '0')
     return this.muted
   },
@@ -39,7 +64,7 @@ export const SoundFX = {
       osc.frequency.exponentialRampToValueAtTime(1600 + i * 300, now + delay + 0.06)
       gain.gain.setValueAtTime(0.12, now + delay)
       gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.1)
-      osc.connect(gain).connect(ctx.destination)
+      osc.connect(gain).connect(this.getDest())
       osc.start(now + delay)
       osc.stop(now + delay + 0.1)
     })
@@ -57,7 +82,7 @@ export const SoundFX = {
     osc.frequency.exponentialRampToValueAtTime(50, now + 0.5)
     gain.gain.setValueAtTime(0.15, now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5)
-    osc.connect(gain).connect(ctx.destination)
+    osc.connect(gain).connect(this.getDest())
     osc.start(now)
     osc.stop(now + 0.5)
   },
@@ -82,7 +107,7 @@ export const SoundFX = {
     filter.Q.setValueAtTime(0.5, now)
     gain.gain.setValueAtTime(0.1, now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2)
-    noise.connect(filter).connect(gain).connect(ctx.destination)
+    noise.connect(filter).connect(gain).connect(this.getDest())
     noise.start(now)
     noise.stop(now + 0.2)
   },
@@ -100,7 +125,7 @@ export const SoundFX = {
       osc.frequency.setValueAtTime(freq, t)
       gain.gain.setValueAtTime(0.1, t)
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15)
-      osc.connect(gain).connect(ctx.destination)
+      osc.connect(gain).connect(this.getDest())
       osc.start(t)
       osc.stop(t + 0.15)
     })
@@ -118,7 +143,7 @@ export const SoundFX = {
     osc.frequency.setValueAtTime(660, now + 0.06)
     gain.gain.setValueAtTime(0.08, now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15)
-    osc.connect(gain).connect(ctx.destination)
+    osc.connect(gain).connect(this.getDest())
     osc.start(now)
     osc.stop(now + 0.15)
   },
@@ -135,7 +160,7 @@ export const SoundFX = {
       osc.frequency.setValueAtTime(600 - i * 150, now + delay)
       gain.gain.setValueAtTime(0.07, now + delay)
       gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.08)
-      osc.connect(gain).connect(ctx.destination)
+      osc.connect(gain).connect(this.getDest())
       osc.start(now + delay)
       osc.stop(now + delay + 0.08)
     })
@@ -153,7 +178,7 @@ export const SoundFX = {
     osc.frequency.exponentialRampToValueAtTime(880, now + 0.12)
     gain.gain.setValueAtTime(0.08, now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15)
-    osc.connect(gain).connect(ctx.destination)
+    osc.connect(gain).connect(this.getDest())
     osc.start(now)
     osc.stop(now + 0.15)
   },
@@ -170,8 +195,25 @@ export const SoundFX = {
     osc.frequency.exponentialRampToValueAtTime(1000, now + 0.05)
     gain.gain.setValueAtTime(0.06, now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07)
-    osc.connect(gain).connect(ctx.destination)
+    osc.connect(gain).connect(this.getDest())
     osc.start(now)
     osc.stop(now + 0.07)
+  },
+
+  playBoost() {
+    if (this.muted) return
+    const ctx = this.getCtx()
+    if (!ctx) return
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(200, now)
+    osc.frequency.exponentialRampToValueAtTime(2500, now + 0.12)
+    gain.gain.setValueAtTime(0.08, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15)
+    osc.connect(gain).connect(this.getDest())
+    osc.start(now)
+    osc.stop(now + 0.15)
   },
 }

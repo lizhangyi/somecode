@@ -102,7 +102,7 @@ export function drawSnake() {
   if (snake.length < 1) return
   const cs = CELL_SIZE
   const maxR = cs / 2 - 2
-  const minR = cs / 6
+  const minR = cs / 4
   const t = theme()
 
   // Boost trail
@@ -124,7 +124,7 @@ export function drawSnake() {
   for (let i = 0; i < snake.length - 1; i++) {
     const t2 = i / Math.max(snake.length - 1, 1)
     const r = minR + (1 - t2) * (maxR - minR)
-    const alpha = 0.35 + (1 - t2) * 0.65
+    const alpha = 0.5 + (1 - t2) * 0.5
     const a = snake[i]
     const b = snake[i + 1]
     if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 1) continue
@@ -144,7 +144,7 @@ export function drawSnake() {
   for (let i = snake.length - 1; i >= 0; i--) {
     const t2 = i / Math.max(snake.length - 1, 1)
     const r = minR + (1 - t2) * (maxR - minR)
-    const alpha = 0.35 + (1 - t2) * 0.65
+    const alpha = 0.5 + (1 - t2) * 0.5
     const seg = snake[i]
     const cx = seg.x * cs + cs / 2
     const cy = seg.y * cs + cs / 2
