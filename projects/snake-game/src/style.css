@@ -1,0 +1,311 @@
+@import "tailwindcss";
+
+@theme {
+  --font-game: 'Press Start 2P', monospace;
+  --color-bg-dark: #0a0a1a;
+  --color-neon-green: #00ff88;
+  --color-neon-pink: #ff0080;
+  --color-neon-purple: #9d00ff;
+  --color-grid-line: #1a1a2e;
+}
+
+/* ===== CRT Scanline ===== */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* ===== Theme overrides ===== */
+body {
+  background: var(--color-bg-dark);
+  color: var(--color-neon-green);
+  font-family: var(--font-game);
+  overflow: hidden;
+}
+
+body.theme-neon-blue {
+  --color-bg-dark: #0a0f1a;
+  --color-neon-green: #00ccff;
+  --color-neon-pink: #ff6600;
+  --color-neon-purple: #0066ff;
+  --color-grid-line: #1a2a3e;
+}
+
+body.theme-fire-red {
+  --color-bg-dark: #1a0a0a;
+  --color-neon-green: #ff4444;
+  --color-neon-pink: #ffaa00;
+  --color-neon-purple: #ff0066;
+  --color-grid-line: #2e1a1a;
+}
+
+/* ===== Title glow ===== */
+.title-glow {
+  text-shadow: 0 0 10px var(--color-neon-green), 0 0 20px var(--color-neon-green), 0 0 40px var(--color-neon-green);
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from { text-shadow: 0 0 10px var(--color-neon-green), 0 0 20px var(--color-neon-green), 0 0 40px var(--color-neon-green); }
+  to { text-shadow: 0 0 20px var(--color-neon-green), 0 0 40px var(--color-neon-green), 0 0 80px var(--color-neon-green); }
+}
+
+/* ===== Score board ===== */
+.score-board {
+  background: rgba(0, 255, 136, 0.1);
+  border: 2px solid var(--color-neon-green);
+  border-radius: 8px;
+}
+
+.score-board span {
+  text-shadow: 0 0 5px var(--color-neon-green);
+}
+
+.high-score {
+  color: var(--color-neon-pink);
+  text-shadow: 0 0 5px var(--color-neon-pink);
+}
+
+/* ===== Canvas ===== */
+#gameCanvas {
+  border: 3px solid var(--color-neon-purple);
+  border-radius: 8px;
+  box-shadow: 0 0 20px var(--color-neon-purple), inset 0 0 20px rgba(157, 0, 255, 0.2);
+  background: var(--color-bg-dark);
+}
+
+/* ===== Controls text ===== */
+.controls kbd {
+  background: var(--color-grid-line);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-neon-green);
+  color: var(--color-neon-green);
+  margin: 0 2px;
+}
+
+/* ===== Theme buttons ===== */
+.theme-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.theme-btn:hover { transform: scale(1.1); }
+
+.theme-btn.active {
+  border-color: white;
+  box-shadow: 0 0 15px currentColor;
+}
+
+.theme-btn.neon-green {
+  background: linear-gradient(135deg, #00ff88, #00ffaa);
+  box-shadow: 0 0 10px #00ff88;
+}
+
+.theme-btn.neon-blue {
+  background: linear-gradient(135deg, #00ccff, #0066ff);
+  box-shadow: 0 0 10px #00ccff;
+}
+
+.theme-btn.fire-red {
+  background: linear-gradient(135deg, #ff4444, #ffaa00);
+  box-shadow: 0 0 10px #ff4444;
+}
+
+/* ===== Mute button ===== */
+.mute-btn {
+  background: var(--color-grid-line);
+  border: 2px solid var(--color-neon-green);
+  color: var(--color-neon-green);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mute-btn:hover {
+  box-shadow: 0 0 15px var(--color-neon-green);
+  transform: scale(1.1);
+}
+
+.mute-btn.muted {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== History button ===== */
+.history-open-btn {
+  background: var(--color-grid-line);
+  border: 2px solid var(--color-neon-green);
+  color: var(--color-neon-green);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-open-btn:hover {
+  box-shadow: 0 0 15px var(--color-neon-green);
+  transform: scale(1.1);
+}
+
+/* ===== History overlay ===== */
+.history-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.history-panel {
+  background: var(--color-bg-dark);
+  border: 2px solid var(--color-neon-green);
+  border-radius: 12px;
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 30px var(--color-neon-green);
+}
+
+.history-panel h2 {
+  font-family: var(--font-game);
+  font-size: 14px;
+  color: var(--color-neon-green);
+  text-align: center;
+  margin-bottom: 15px;
+  text-shadow: 0 0 10px var(--color-neon-green);
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 100px;
+  max-height: 50vh;
+  margin-bottom: 15px;
+}
+
+.history-list::-webkit-scrollbar { width: 4px; }
+
+.history-list::-webkit-scrollbar-thumb {
+  background: var(--color-neon-green);
+  border-radius: 2px;
+}
+
+.history-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-game);
+  font-size: 10px;
+  padding: 20px;
+}
+
+.history-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-grid-line);
+  font-family: var(--font-game);
+  font-size: 9px;
+  color: var(--color-neon-green);
+}
+
+.history-row:first-of-type {
+  color: var(--color-neon-pink);
+  text-shadow: 0 0 5px var(--color-neon-pink);
+}
+
+.history-row .rank {
+  width: 30px;
+  text-align: center;
+  color: var(--color-neon-purple);
+}
+
+.history-row .score { flex: 1; text-align: center; }
+
+.history-row .length {
+  width: 40px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.history-row .date {
+  width: 90px;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 8px;
+}
+
+.history-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.history-action-btn {
+  font-family: var(--font-game);
+  font-size: 9px;
+  padding: 8px 16px;
+  background: var(--color-grid-line);
+  border: 1px solid var(--color-neon-green);
+  color: var(--color-neon-green);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.history-action-btn:hover {
+  background: var(--color-neon-green);
+  color: var(--color-bg-dark);
+  box-shadow: 0 0 15px var(--color-neon-green);
+}
+
+/* ===== Theme label ===== */
+.theme-label {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-right: 5px;
+}
+
+/* ===== Touch hint ===== */
+.touch-hint { display: none; }
+
+@media (max-width: 600px) {
+  .touch-hint { display: block; }
+}
