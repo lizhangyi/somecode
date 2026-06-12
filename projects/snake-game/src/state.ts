@@ -19,10 +19,14 @@ export let ctx!: CanvasRenderingContext2D
 export let scoreEl!: HTMLElement
 export let highScoreEl!: HTMLElement
 export let themeButtons!: NodeListOf<Element>
+export let musicButtons!: NodeListOf<Element>
 export let boosting = false
 export let boostTicks = 0
 export let boostCooldownEnd = 0
 export const boostTrail: Point[] = []
+export let comboCount = 0
+export let comboExpire = 0
+export const comboPopups: { x: number; y: number; text: string; alpha: number; vy: number }[] = []
 
 export function setDirection(d: Point) { direction = d }
 export function setNextDirection(d: Point) { nextDirection = d }
@@ -37,6 +41,8 @@ export function setPortalTimer(t: number) { portalTimer = t }
 export function setBoosting(b: boolean) { boosting = b }
 export function setBoostTicks(t: number) { boostTicks = t }
 export function setBoostCooldownEnd(t: number) { boostCooldownEnd = t }
+export function setComboCount(c: number) { comboCount = c }
+export function setComboExpire(t: number) { comboExpire = t }
 
 export function initDOM() {
   canvas = document.getElementById('gameCanvas') as HTMLCanvasElement
@@ -46,6 +52,7 @@ export function initDOM() {
   scoreEl = document.getElementById('score')!
   highScoreEl = document.getElementById('highScore')!
   themeButtons = document.querySelectorAll('.theme-btn')
+  musicButtons = document.querySelectorAll('.music-btn')
   highScore = Number(localStorage.getItem('snake_high_score')) || 0
   highScoreEl.textContent = String(highScore)
 }

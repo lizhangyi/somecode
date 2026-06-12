@@ -1,17 +1,19 @@
 import './style.css'
-import { initDOM, themeButtons, gameState } from './state'
+import { initDOM, themeButtons, musicButtons, gameState } from './state'
 import { loadTheme, applyTheme, getThemeColors } from './theme'
 import { SoundFX } from './sound'
-import { BGM } from './bgm'
+import { BGM, setMusicTheme, loadMusicTheme, currentMusicTheme } from './bgm'
 import { renderStartScreen, renderGameFrame, renderGameOver } from './renderer'
 import { setupControls } from './controls'
 import { setupHistoryButton } from './history'
-import type { ThemeName } from './types'
+import type { ThemeName, MusicTheme } from './types'
 
 function init() {
   initDOM()
 
   loadTheme()
+  loadMusicTheme()
+  updateMusicButtons()
 
   renderStartScreen()
 
@@ -31,6 +33,20 @@ function init() {
       }
     })
   })
+
+  // Music theme selector
+  musicButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const theme = (btn as HTMLElement).dataset.music as MusicTheme
+      setMusicTheme(theme)
+      updateMusicButtons()
+    })
+  })
+  function updateMusicButtons() {
+    musicButtons.forEach(btn => {
+      btn.classList.toggle('active', (btn as HTMLElement).dataset.music === currentMusicTheme)
+    })
+  }
 
   // Mute button
   const muteBtn = document.getElementById('muteBtn')!

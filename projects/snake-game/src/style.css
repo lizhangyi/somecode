@@ -129,6 +129,39 @@ body.theme-fire-red {
   box-shadow: 0 0 10px #ff4444;
 }
 
+/* ===== Music buttons ===== */
+.music-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 16px;
+}
+
+.music-btn:hover { transform: scale(1.1); }
+
+.music-btn.active {
+  border-color: white;
+  box-shadow: 0 0 15px currentColor;
+}
+
+.music-btn.retro {
+  background: linear-gradient(135deg, #ffaa00, #ff6600);
+  box-shadow: 0 0 10px #ffaa00;
+}
+
+.music-btn.chill {
+  background: linear-gradient(135deg, #66ccff, #9966ff);
+  box-shadow: 0 0 10px #66ccff;
+}
+
+.music-btn.intense {
+  background: linear-gradient(135deg, #ff3366, #ff0066);
+  box-shadow: 0 0 10px #ff3366;
+}
+
 /* ===== Mute button ===== */
 .mute-btn {
   background: var(--color-grid-line);

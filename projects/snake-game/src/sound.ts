@@ -216,4 +216,22 @@ export const SoundFX = {
     osc.start(now)
     osc.stop(now + 0.15)
   },
+
+  playCombo(level: number) {
+    if (this.muted) return
+    const ctx = this.getCtx()
+    if (!ctx) return
+    const now = ctx.currentTime
+    const baseFreq = 800 + level * 120
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(baseFreq, now)
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.08)
+    gain.gain.setValueAtTime(0.1, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+    osc.connect(gain).connect(this.getDest())
+    osc.start(now)
+    osc.stop(now + 0.12)
+  },
 }

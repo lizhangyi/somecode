@@ -1,9 +1,10 @@
 import {
   snake, food, direction, foodPulse, portals, boosting, boostTrail,
   canvas, ctx, gameState, score, highScore, setFoodPulse,
+  comboCount, comboExpire, comboPopups,
 } from './state'
 import { getThemeColors } from './theme'
-import { GRID_SIZE, CELL_SIZE, hexToRgba } from './config'
+import { GRID_SIZE, CELL_SIZE, hexToRgba, COMBO_WINDOW } from './config'
 
 function theme() {
   return getThemeColors()
@@ -235,6 +236,56 @@ export function renderStartScreen() {
   c.shadowBlur = 0
 }
 
+function drawComboPopups() {
+  const c = ctx
+  for (let i = comboPopups.length - 1; i >= 0; i--) {
+    const p = comboPopups[i]
+    p.y += p.vy
+    p.alpha -= 0.018
+    if (p.alpha <= 0) {
+      comboPopups.splice(i, 1)
+      continue
+    }
+    const x = (p.x + 0.5) * CELL_SIZE
+    const y = (p.y + 0.5) * CELL_SIZE
+    c.save()
+    c.globalAlpha = p.alpha
+    c.fillStyle = '#ffff00'
+    c.font = 'bold 16px "Press Start 2P"'
+    c.textAlign = 'center'
+    c.shadowColor = '#ffff00'
+    c.shadowBlur = 12
+    c.fillText(p.text, x, y)
+    c.shadowBlur = 0
+    c.restore()
+  }
+}
+
+function drawComboCounter() {
+  if (comboCount <= 0) return
+  const c = ctx
+  const now = Date.now()
+  const remaining = Math.max(0, comboExpire - now)
+  const ratio = remaining / COMBO_WINDOW
+  const x = 10
+  const y = 10
+
+  c.save()
+  c.fillStyle = '#ffff00'
+  c.font = '12px "Press Start 2P"'
+  c.textAlign = 'left'
+  c.shadowColor = '#ffff00'
+  c.shadowBlur = 8
+  c.fillText(`COMBO x${comboCount + 1}`, x, y + 12)
+  c.shadowBlur = 0
+
+  c.fillStyle = 'rgba(255, 255, 255, 0.2)'
+  c.fillRect(x, y + 18, 100, 4)
+  c.fillStyle = '#ffff00'
+  c.fillRect(x, y + 18, 100 * ratio, 4)
+  c.restore()
+}
+
 export function renderGameFrame() {
   if (gameState !== 'playing' && gameState !== 'paused') return
   const c = ctx
@@ -244,6 +295,8 @@ export function renderGameFrame() {
   drawPortals()
   drawFood()
   drawSnake()
+  drawComboPopups()
+  drawComboCounter()
   if (gameState === 'paused') drawPauseOverlay()
   setFoodPulse(foodPulse + 0.1)
   portals.forEach(p => {

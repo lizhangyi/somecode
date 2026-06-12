@@ -3,10 +3,11 @@ import {
   snake, food, direction, nextDirection, score, highScore, portals, portalTimer,
   gameState, currentSpeed, lastSpeedIncreaseScore, boosting, boostTicks,
   boostCooldownEnd, boostTrail, scoreEl, highScoreEl, gameLoop,
+  comboCount, comboExpire, comboPopups,
   setDirection, setNextDirection, setGameState,
   setScore, setHighScore, setCurrentSpeed, setLastSpeedIncreaseScore,
   setBoosting, setBoostTicks, setBoostCooldownEnd, setFoodPulse, setPortalTimer,
-  setGameLoop,
+  setGameLoop, setComboCount, setComboExpire,
 } from './state'
 import { SoundFX } from './sound'
 import { BGM } from './bgm'
@@ -15,7 +16,7 @@ import { saveHistory } from './history'
 import {
   GRID_SIZE, DIRECTION, PORTAL_PAIRS, SPEED_INCREASE_SCORE,
   MIN_SPEED, SPEED_DECREMENT, BOOST_TICKS, BOOST_INTERVAL, BOOST_COOLDOWN,
-  BOOST_TRAIL_MAX,
+  BOOST_TRAIL_MAX, COMBO_WINDOW, COMBO_MAX,
 } from './config'
 
 function getRandomEmptyPosition(): Point {
@@ -96,6 +97,11 @@ export function startGame() {
   setBoostCooldownEnd(0)
   boostTrail.length = 0
 
+  // Reset combo
+  setComboCount(0)
+  setComboExpire(0)
+  comboPopups.length = 0
+
   // Reset portals
   portals.length = 0
   setPortalTimer(0)
@@ -117,6 +123,11 @@ export function gameOver() {
   SoundFX.playDeath()
   BGM.stop()
   if (gameLoop) clearInterval(gameLoop)
+
+  // Reset combo
+  setComboCount(0)
+  setComboExpire(0)
+  comboPopups.length = 0
 
   if (score > highScore) {
     setHighScore(score)
@@ -226,8 +237,33 @@ export function update() {
 
   // Food check
   if (head.x === food.x && head.y === food.y) {
-    setScore(score + (boosting ? 20 : 10))
+    // Combo logic
+    const now = Date.now()
+    if (now < comboExpire && comboCount < COMBO_MAX) {
+      setComboCount(comboCount + 1)
+    } else if (now >= comboExpire) {
+      setComboCount(0)
+    }
+    const multiplier = comboCount + 1
+    setComboExpire(now + COMBO_WINDOW)
+
+    const baseScore = boosting ? 20 : 10
+    const gained = baseScore * multiplier
+    setScore(score + gained)
     scoreEl.textContent = String(score)
+
+    // Combo popup
+    if (multiplier > 1) {
+      comboPopups.push({
+        x: food.x,
+        y: food.y,
+        text: `x${multiplier}!`,
+        alpha: 1,
+        vy: -0.05,
+      })
+      SoundFX.playCombo(comboCount)
+    }
+
     generateFood()
     SoundFX.playEat()
     if (score - lastSpeedIncreaseScore >= SPEED_INCREASE_SCORE) {

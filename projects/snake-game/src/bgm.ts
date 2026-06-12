@@ -1,8 +1,84 @@
+import type { MusicTheme } from './types'
+
 const ROOT_FREQ = 110
-const BEAT_MS = 250
 
 function semitone(freq: number, semitones: number): number {
   return freq * 2 ** (semitones / 12)
+}
+
+interface BGMStyle {
+  beatMs: number
+  patternLen: number
+  bass: { semitones: number[]; type: OscillatorType; vol: number; dur: number }
+  melody: { semitones: number[]; type: OscillatorType; vol: number; dur: number; beats: number[] }
+}
+
+const STYLES: Record<MusicTheme, BGMStyle> = {
+  retro: {
+    beatMs: 250,
+    patternLen: 8,
+    bass: {
+      semitones: [0, 7, 0, 7, 0, 7, 0, 7],
+      type: 'sawtooth',
+      vol: 0.04,
+      dur: 0.8,
+    },
+    melody: {
+      semitones: [12, 16, 19, 24],
+      type: 'square',
+      vol: 0.025,
+      dur: 0.7,
+      beats: [0, 2, 4, 6],
+    },
+  },
+  chill: {
+    beatMs: 320,
+    patternLen: 16,
+    bass: {
+      semitones: [0, 0, 7, 7, 5, 5, 3, 3, 0, 0, 7, 7, 5, 5, 3, 3],
+      type: 'triangle',
+      vol: 0.035,
+      dur: 0.9,
+    },
+    melody: {
+      semitones: [12, 15, 19, 24, 19, 15, 12, 7],
+      type: 'sine',
+      vol: 0.02,
+      dur: 0.8,
+      beats: [0, 2, 4, 6, 8, 10, 12, 14],
+    },
+  },
+  intense: {
+    beatMs: 180,
+    patternLen: 16,
+    bass: {
+      semitones: [0, 0, 3, 3, 5, 5, 7, 7, 0, 0, 3, 3, 5, 5, 7, 10],
+      type: 'sawtooth',
+      vol: 0.045,
+      dur: 0.6,
+    },
+    melody: {
+      semitones: [12, 15, 19, 22, 24, 22, 19, 15, 12, 15, 19, 22, 24, 27, 24, 22],
+      type: 'square',
+      vol: 0.02,
+      dur: 0.5,
+      beats: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    },
+  },
+}
+
+export let currentMusicTheme: MusicTheme = 'retro'
+
+export function setMusicTheme(theme: MusicTheme) {
+  currentMusicTheme = theme
+  localStorage.setItem('snake_music_theme', theme)
+}
+
+export function loadMusicTheme() {
+  const saved = localStorage.getItem('snake_music_theme') as MusicTheme | null
+  if (saved && STYLES[saved]) {
+    currentMusicTheme = saved
+  }
 }
 
 export const BGM = {
@@ -63,22 +139,22 @@ export const BGM = {
 
     const ctx = this.ctx!
     const now = ctx.currentTime
-    const beat = this.beatIndex % 8
+    const style = STYLES[currentMusicTheme]
+    const beat = this.beatIndex % style.patternLen
 
-    // Bass: A2 alternates with E3
-    const bassSemitones = [0, 7, 0, 7, 0, 7, 0, 7]
-    const bassFreq = semitone(ROOT_FREQ, bassSemitones[beat])
-    this.playNote(bassFreq, BEAT_MS / 1000 * 0.8, 'sawtooth', 0.04, now)
+    // Bass
+    const bassFreq = semitone(ROOT_FREQ, style.bass.semitones[beat])
+    this.playNote(bassFreq, style.beatMs / 1000 * style.bass.dur, style.bass.type, style.bass.vol, now)
 
-    // Melody: plays on beats 0, 2, 4, 6
-    if (beat % 2 === 0) {
-      const melodySemitones = [12, 16, 19, 24]
-      const melodyFreq = semitone(ROOT_FREQ, melodySemitones[beat / 2])
-      this.playNote(melodyFreq, BEAT_MS / 1000 * 0.7, 'square', 0.025, now)
+    // Melody
+    const melodyIdx = style.melody.beats.indexOf(beat)
+    if (melodyIdx !== -1) {
+      const melodyFreq = semitone(ROOT_FREQ, style.melody.semitones[melodyIdx % style.melody.semitones.length])
+      this.playNote(melodyFreq, style.beatMs / 1000 * style.melody.dur, style.melody.type, style.melody.vol, now)
     }
 
     this.beatIndex++
-    this.timeoutId = setTimeout(() => this.schedule(), BEAT_MS)
+    this.timeoutId = setTimeout(() => this.schedule(), style.beatMs)
   },
 
   playNote(freq: number, duration: number, type: OscillatorType, volume: number, startTime: number) {

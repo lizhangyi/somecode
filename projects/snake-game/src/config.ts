@@ -14,6 +14,8 @@ export const BOOST_COOLDOWN = 2000
 export const BOOST_TRAIL_MAX = 8
 export const MAX_HISTORY = 20
 export const HISTORY_KEY = 'snake_history'
+export const COMBO_WINDOW = 5000
+export const COMBO_MAX = 10
 
 export const DIRECTION = {
   UP: { x: 0, y: -1 },

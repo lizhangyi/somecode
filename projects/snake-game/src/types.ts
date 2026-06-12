@@ -12,6 +12,8 @@ export type GameState = 'idle' | 'playing' | 'paused' | 'game_over'
 
 export type ThemeName = 'neon-green' | 'neon-blue' | 'fire-red'
 
+export type MusicTheme = 'retro' | 'chill' | 'intense'
+
 export interface ThemeColors {
   snake: string
   snakeHead: string
