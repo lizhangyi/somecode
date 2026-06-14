@@ -4,6 +4,7 @@
 *~
 .idea/
 .claude/
+.workbuddy/
 .vscode/
 
 # Claude 本地配置
