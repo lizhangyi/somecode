@@ -1,15 +1,16 @@
 import './style.css'
 import { initDOM, themeButtons, musicButtons, gameState } from './state'
-import { loadTheme, applyTheme, getThemeColors } from './theme'
+import { loadTheme, applyTheme } from './theme'
 import { SoundFX } from './sound'
 import { BGM, setMusicTheme, loadMusicTheme, currentMusicTheme } from './bgm'
-import { renderStartScreen, renderGameFrame, renderGameOver } from './renderer'
+import { renderStartScreen, renderGameFrame, renderGameOver, preRenderGrid } from './renderer'
 import { setupControls } from './controls'
 import { setupHistoryButton } from './history'
 import type { ThemeName, MusicTheme } from './types'
 
 function init() {
   initDOM()
+  preRenderGrid()
 
   loadTheme()
   loadMusicTheme()
@@ -24,6 +25,7 @@ function init() {
     btn.addEventListener('click', () => {
       const theme = (btn as HTMLElement).dataset.theme as ThemeName
       applyTheme(theme)
+      preRenderGrid()
       if (gameState === 'playing' || gameState === 'paused') {
         renderGameFrame()
       } else if (gameState === 'idle') {

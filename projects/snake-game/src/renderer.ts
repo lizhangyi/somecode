@@ -1,3 +1,4 @@
+import type { ThemeColors } from './types'
 import {
   snake, food, direction, foodPulse, portals, boosting, boostTrail,
   canvas, ctx, gameState, score, highScore, setFoodPulse,
@@ -6,20 +7,31 @@ import {
 import { getThemeColors } from './theme'
 import { GRID_SIZE, CELL_SIZE, hexToRgba, COMBO_WINDOW } from './config'
 
-function theme() {
-  return getThemeColors()
-}
+// --- Grid offscreen canvas (pre-rendered once, reused every frame) ---
+let gridCanvas: HTMLCanvasElement | null = null
 
-export function drawGrid() {
-  const c = ctx
-  c.strokeStyle = theme().grid
-  c.lineWidth = 0.5
+export function preRenderGrid() {
+  const t = getThemeColors()
+  const offscreen = document.createElement('canvas')
+  offscreen.width = GRID_SIZE * CELL_SIZE
+  offscreen.height = GRID_SIZE * CELL_SIZE
+  const oCtx = offscreen.getContext('2d')!
+
+  oCtx.fillStyle = t.background
+  oCtx.fillRect(0, 0, offscreen.width, offscreen.height)
+
+  oCtx.strokeStyle = t.grid
+  oCtx.lineWidth = 0.5
   for (let i = 0; i <= GRID_SIZE; i++) {
     const pos = i * CELL_SIZE
-    c.beginPath(); c.moveTo(pos, 0); c.lineTo(pos, canvas.height); c.stroke()
-    c.beginPath(); c.moveTo(0, pos); c.lineTo(canvas.width, pos); c.stroke()
+    oCtx.beginPath(); oCtx.moveTo(pos, 0); oCtx.lineTo(pos, offscreen.height); oCtx.stroke()
+    oCtx.beginPath(); oCtx.moveTo(0, pos); oCtx.lineTo(offscreen.width, pos); oCtx.stroke()
   }
+
+  gridCanvas = offscreen
 }
+
+// --- Portals ---
 
 function drawSpiral(x: number, y: number, spiralAngle: number, radius: number) {
   const c = ctx
@@ -30,7 +42,7 @@ function drawSpiral(x: number, y: number, spiralAngle: number, radius: number) {
     c.strokeStyle = `rgba(255, 0, 128, ${0.4 + (i / lines) * 0.2})`
     c.lineWidth = 2
     c.beginPath()
-    for (let t = 0; t < turns * Math.PI * 2; t += 0.1) {
+    for (let t = 0; t < turns * Math.PI * 2; t += 0.25) {
       const currentAngle = lineAngle + t
       const r = (t / (turns * Math.PI * 2)) * radius
       const px = x + Math.cos(currentAngle) * r
@@ -42,18 +54,18 @@ function drawSpiral(x: number, y: number, spiralAngle: number, radius: number) {
   }
 }
 
-function drawPortalPoint(pos: { x: number; y: number }, pulse: number, spiral: number) {
+function drawPortalPoint(t: ThemeColors, pos: { x: number; y: number }, pulse: number, spiral: number) {
   const c = ctx
   const x = pos.x * CELL_SIZE + CELL_SIZE / 2
   const y = pos.y * CELL_SIZE + CELL_SIZE / 2
   const baseRadius = CELL_SIZE / 2 - 4
   const pulseRadius = baseRadius + Math.sin(pulse) * 2
 
-  c.shadowColor = theme().portalGlow
-  c.shadowBlur = 15 + Math.sin(pulse) * 8
+  c.shadowColor = t.portalGlow
+  c.shadowBlur = 10 + Math.sin(pulse) * 5
   drawSpiral(x, y, spiral, pulseRadius)
 
-  c.strokeStyle = theme().portal
+  c.strokeStyle = t.portal
   c.lineWidth = 2
   c.beginPath(); c.arc(x, y, pulseRadius + 3, 0, Math.PI * 2); c.stroke()
 
@@ -62,13 +74,13 @@ function drawPortalPoint(pos: { x: number; y: number }, pulse: number, spiral: n
   c.shadowBlur = 0
 }
 
-function drawPortalConnection(a: { x: number; y: number }, b: { x: number; y: number }) {
+function drawPortalConnection(t: ThemeColors, a: { x: number; y: number }, b: { x: number; y: number }) {
   const c = ctx
   const x1 = a.x * CELL_SIZE + CELL_SIZE / 2
   const y1 = a.y * CELL_SIZE + CELL_SIZE / 2
   const x2 = b.x * CELL_SIZE + CELL_SIZE / 2
   const y2 = b.y * CELL_SIZE + CELL_SIZE / 2
-  c.shadowColor = theme().portal
+  c.shadowColor = t.portal
   c.shadowBlur = 5
   c.strokeStyle = 'rgba(157, 0, 255, 0.3)'
   c.lineWidth = 1
@@ -78,33 +90,36 @@ function drawPortalConnection(a: { x: number; y: number }, b: { x: number; y: nu
   c.shadowBlur = 0
 }
 
-export function drawPortals() {
+function drawPortals(t: ThemeColors) {
   portals.forEach(p => {
-    drawPortalPoint(p.pointA, p.pulse, p.spiralA)
-    drawPortalPoint(p.pointB, p.pulse + Math.PI * 0.5, p.spiralB)
-    drawPortalConnection(p.pointA, p.pointB)
+    drawPortalPoint(t, p.pointA, p.pulse, p.spiralA)
+    drawPortalPoint(t, p.pointB, p.pulse + Math.PI * 0.5, p.spiralB)
+    drawPortalConnection(t, p.pointA, p.pointB)
   })
 }
 
-export function drawFood() {
+// --- Food ---
+
+function drawFood(t: ThemeColors) {
   const c = ctx
   const x = food.x * CELL_SIZE + CELL_SIZE / 2
   const y = food.y * CELL_SIZE + CELL_SIZE / 2
   const baseRadius = CELL_SIZE / 2 - 2
   const pulseRadius = baseRadius + Math.sin(foodPulse) * 2
-  c.shadowColor = theme().food
-  c.shadowBlur = 15 + Math.sin(foodPulse) * 5
-  c.fillStyle = theme().food
+  c.shadowColor = t.food
+  c.shadowBlur = 8 + Math.sin(foodPulse) * 3
+  c.fillStyle = t.food
   c.beginPath(); c.arc(x, y, pulseRadius, 0, Math.PI * 2); c.fill()
   c.shadowBlur = 0
 }
 
-export function drawSnake() {
+// --- Snake ---
+
+function drawSnake(t: ThemeColors) {
   if (snake.length < 1) return
   const cs = CELL_SIZE
   const maxR = cs / 2 - 2
   const minR = cs / 4
-  const t = theme()
 
   // Boost trail
   if (boosting && boostTrail.length > 0) {
@@ -121,7 +136,7 @@ export function drawSnake() {
 
   // Body connections
   ctx.shadowColor = t.snake
-  ctx.shadowBlur = 8
+  ctx.shadowBlur = 6
   for (let i = 0; i < snake.length - 1; i++) {
     const t2 = i / Math.max(snake.length - 1, 1)
     const r = minR + (1 - t2) * (maxR - minR)
@@ -152,10 +167,10 @@ export function drawSnake() {
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2)
     if (i === 0) {
       ctx.fillStyle = t.snakeHead
-      ctx.shadowBlur = boosting ? 25 : 15
+      ctx.shadowBlur = boosting ? 20 : 12
     } else {
       ctx.fillStyle = hexToRgba(t.snake, alpha)
-      ctx.shadowBlur = boosting ? 15 : 8
+      ctx.shadowBlur = boosting ? 10 : 6
     }
     ctx.fill()
   }
@@ -201,14 +216,16 @@ export function drawSnake() {
   ctx.stroke()
 }
 
-export function drawPauseOverlay() {
+// --- UI overlays ---
+
+function drawPauseOverlay(t: ThemeColors) {
   const c = ctx
   c.fillStyle = 'rgba(0, 0, 0, 0.5)'
   c.fillRect(0, 0, canvas.width, canvas.height)
   c.textAlign = 'center'
-  c.fillStyle = theme().snake
+  c.fillStyle = t.snake
   c.font = '24px "Press Start 2P"'
-  c.shadowColor = theme().snake
+  c.shadowColor = t.snake
   c.shadowBlur = 30
   c.fillText('PAUSED', canvas.width / 2, canvas.height / 2 - 20)
   c.font = '10px "Press Start 2P"'
@@ -218,23 +235,7 @@ export function drawPauseOverlay() {
   c.shadowBlur = 0
 }
 
-export function renderStartScreen() {
-  const c = ctx
-  c.fillStyle = theme().background
-  c.fillRect(0, 0, canvas.width, canvas.height)
-  drawGrid()
-  c.fillStyle = theme().snake
-  c.font = '14px "Press Start 2P"'
-  c.textAlign = 'center'
-  c.shadowColor = theme().snake
-  c.shadowBlur = 20
-  c.fillText('按空格键开始', canvas.width / 2, canvas.height / 2)
-  c.font = '10px "Press Start 2P"'
-  c.fillStyle = theme().food
-  c.shadowColor = theme().food
-  c.fillText('SNAKE GAME', canvas.width / 2, canvas.height / 2 - 50)
-  c.shadowBlur = 0
-}
+// --- Combo effects ---
 
 function drawComboPopups() {
   const c = ctx
@@ -286,18 +287,48 @@ function drawComboCounter() {
   c.restore()
 }
 
+// --- Public render entry points ---
+
+export function renderStartScreen() {
+  const c = ctx
+  const t = getThemeColors()
+  if (gridCanvas) {
+    c.drawImage(gridCanvas, 0, 0)
+  } else {
+    c.fillStyle = t.background
+    c.fillRect(0, 0, canvas.width, canvas.height)
+  }
+  c.fillStyle = t.snake
+  c.font = '14px "Press Start 2P"'
+  c.textAlign = 'center'
+  c.shadowColor = t.snake
+  c.shadowBlur = 20
+  c.fillText('按空格键开始', canvas.width / 2, canvas.height / 2)
+  c.font = '10px "Press Start 2P"'
+  c.fillStyle = t.food
+  c.shadowColor = t.food
+  c.fillText('SNAKE GAME', canvas.width / 2, canvas.height / 2 - 50)
+  c.shadowBlur = 0
+}
+
 export function renderGameFrame() {
   if (gameState !== 'playing' && gameState !== 'paused') return
   const c = ctx
-  c.fillStyle = theme().background
-  c.fillRect(0, 0, canvas.width, canvas.height)
-  drawGrid()
-  drawPortals()
-  drawFood()
-  drawSnake()
+  const t = getThemeColors()
+
+  if (gridCanvas) {
+    c.drawImage(gridCanvas, 0, 0)
+  } else {
+    c.fillStyle = t.background
+    c.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  drawPortals(t)
+  drawFood(t)
+  drawSnake(t)
   drawComboPopups()
   drawComboCounter()
-  if (gameState === 'paused') drawPauseOverlay()
+  if (gameState === 'paused') drawPauseOverlay(t)
   setFoodPulse(foodPulse + 0.1)
   portals.forEach(p => {
     p.pulse += 0.08
@@ -309,18 +340,22 @@ export function renderGameFrame() {
 
 export function renderGameOver() {
   const c = ctx
-  c.fillStyle = theme().background
-  c.fillRect(0, 0, canvas.width, canvas.height)
-  drawGrid()
+  const t = getThemeColors()
+  if (gridCanvas) {
+    c.drawImage(gridCanvas, 0, 0)
+  } else {
+    c.fillStyle = t.background
+    c.fillRect(0, 0, canvas.width, canvas.height)
+  }
   c.textAlign = 'center'
-  c.fillStyle = theme().food
+  c.fillStyle = t.food
   c.font = '16px "Press Start 2P"'
-  c.shadowColor = theme().food
+  c.shadowColor = t.food
   c.shadowBlur = 20
   c.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 40)
-  c.fillStyle = theme().snake
+  c.fillStyle = t.snake
   c.font = '12px "Press Start 2P"'
-  c.shadowColor = theme().snake
+  c.shadowColor = t.snake
   c.shadowBlur = 15
   c.fillText(`SCORE: ${score}`, canvas.width / 2, canvas.height / 2)
   if (score >= highScore) {
