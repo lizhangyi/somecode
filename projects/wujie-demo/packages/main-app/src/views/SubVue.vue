@@ -29,7 +29,7 @@
       </el-alert>
 
       <div style="margin-bottom: 8px; color: #999; font-size: 12px;">
-        props 传递的用户信息: {{ JSON.stringify(userInfo) }}
+        props 传递的用户信息: {{ JSON.stringify(subProps.userInfo) }}
       </div>
     </el-card>
 
