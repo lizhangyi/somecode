@@ -1,0 +1,152 @@
+/* ========== 故意与主应用冲突的样式 ========== */
+/* 主应用也有 body 样式，但无界的 Shadow DOM 会隔离 */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Courier New', monospace; /* 故意使用不同字体 */
+  background: #1a1a2e; /* 故意使用深色背景，与主应用冲突 */
+  color: #eee;
+}
+
+.app-container {
+  max-width: 650px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f5222d;
+}
+
+.app-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #f5222d;
+}
+
+.app-badge {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: #fff1f0;
+  color: #f5222d;
+  border: 1px solid #ffa39e;
+}
+
+/* 对比面板 */
+.compare-section {
+  margin-bottom: 16px;
+}
+
+.compare-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: #f5222d;
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.compare-card {
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.compare-card.child {
+  background: #16213e;
+}
+
+.compare-card.parent {
+  background: #0f3460;
+}
+
+.compare-card-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  color: #999;
+}
+
+.compare-card-value {
+  font-size: 14px;
+  font-family: monospace;
+  word-break: break-all;
+  color: #e94560;
+}
+
+.compare-card.parent .compare-card-value {
+  color: #00b4d8;
+}
+
+/* CSS 隔离演示区 */
+.css-demo {
+  margin-top: 20px;
+  padding: 16px;
+  background: #16213e;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.css-demo h4 {
+  margin-bottom: 12px;
+  color: #e94560;
+}
+
+/* 故意使用与主应用相同的 class 名，但不同样式 */
+.shared-class-name {
+  padding: 12px 20px;
+  background: #e94560;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.another-shared-class {
+  padding: 10px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+/* 提示框 */
+.tip-box {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.tip-box.success {
+  background: rgba(82, 196, 26, 0.15);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+
+.tip-box.warning {
+  background: rgba(250, 140, 22, 0.15);
+  border: 1px solid rgba(250, 140, 22, 0.3);
+  color: #fa8c16;
+}

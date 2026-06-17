@@ -1,0 +1,13 @@
+{
+  "name": "wujie-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "无界(wujie)微前端框架功能演示项目",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "preview": "pnpm -r run preview"
+  },
+  "keywords": ["wujie", "micro-frontend", "demo"],
+  "license": "MIT"
+}
