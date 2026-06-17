@@ -37,7 +37,7 @@ npm run dev
 
 ---
 
-### 3. 数据表格
+### 3. 吸顶表格
 
 **路径**: `projects/data-table/`
 **技术栈**: 原生 HTML/CSS/JavaScript
