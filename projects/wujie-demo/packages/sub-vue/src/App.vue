@@ -10,6 +10,14 @@
       <strong>Props 通信:</strong> 用户: {{ propsInfo.userInfo?.name }} | 角色: {{ propsInfo.userInfo?.role }}
     </div>
 
+    <!-- 导航切换保护提示 -->
+    <div
+      v-if="pendingTodos.length > 0"
+      style="margin-bottom: 12px; padding: 10px 14px; background: #fff7e6; border: 1px solid #ffd591; border-radius: 6px; font-size: 13px; color: #fa8c16;"
+    >
+      ⚠️ 当前有 {{ pendingTodos.length }} 个未完成待办，主应用切换菜单时会先询问确认。
+    </div>
+
     <!-- 导航 -->
     <div class="nav-tabs">
       <div
@@ -48,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 
 interface Todo {
   id: number
@@ -82,6 +90,34 @@ function removeTodo(id: number) {
   if (index !== -1) todos.splice(index, 1)
 }
 
+// ========== 导航切换保护 ==========
+const pendingTodos = computed(() => todos.filter(t => !t.done))
+
+/**
+ * 监听主应用的导航询问
+ * 如果有未完成的待办事项，拒绝切换并说明原因
+ */
+function handleNavigationRequest(data: { requestId: string; targetPath: string }) {
+  const bus = (window as any).$wujie?.bus
+  if (!bus) return
+
+  const unfinished = todos.filter(t => !t.done)
+  if (unfinished.length > 0) {
+    console.log(`%c[sub-vue] 收到导航询问，有 ${unfinished.length} 个未完成待办，拒绝切换`, 'color: #fa8c16; font-weight: bold;')
+    bus.$emit('navigationResponse', {
+      requestId: data.requestId,
+      allowed: false,
+      reason: `当前有 ${unfinished.length} 个待办事项未完成，请先处理后再切换`
+    })
+  } else {
+    console.log('%c[sub-vue] 收到导航询问，全部完成，允许切换', 'color: #52c41a; font-weight: bold;')
+    bus.$emit('navigationResponse', {
+      requestId: data.requestId,
+      allowed: true
+    })
+  }
+}
+
 // ========== eventBus 通信 ==========
 const commMessage = ref('')
 const receivedMessages = ref<{ from: string; content: string }[]>([])
@@ -108,6 +144,7 @@ onMounted(() => {
   const bus = (window as any).$wujie?.bus
   if (bus) {
     bus.$on('subMessage', handleIncomingMessage)
+    bus.$on('requestNavigation', handleNavigationRequest)
   }
 })
 
@@ -115,6 +152,7 @@ onUnmounted(() => {
   const bus = (window as any).$wujie?.bus
   if (bus) {
     bus.$off('subMessage', handleIncomingMessage)
+    bus.$off('requestNavigation', handleNavigationRequest)
   }
 })
 </script>

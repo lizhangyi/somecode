@@ -13,7 +13,7 @@ function App() {
   const appConfig = (window as any).APP_CONFIG || null
   const propsInfo = (window as any).$wujie?.props || null
 
-  // 监听 eventBus 消息
+  // 监听 eventBus 消息 + 导航询问
   useEffect(() => {
     const bus = (window as any).$wujie?.bus
     if (!bus) return
@@ -22,8 +22,21 @@ function App() {
       setReceivedMessages(prev => [{ from: data.from, content: data.message }, ...prev])
     }
 
+    // 监听主应用的导航询问，始终允许切换
+    const navHandler = (data: { requestId: string; targetPath: string }) => {
+      console.log('%c[sub-react] 收到导航询问，允许切换', 'color: #52c41a; font-weight: bold;')
+      bus.$emit('navigationResponse', {
+        requestId: data.requestId,
+        allowed: true
+      })
+    }
+
     bus.$on('subMessage', handler)
-    return () => bus.$off('subMessage', handler)
+    bus.$on('requestNavigation', navHandler)
+    return () => {
+      bus.$off('subMessage', handler)
+      bus.$off('requestNavigation', navHandler)
+    }
   }, [])
 
   const sendMessage = useCallback(() => {
