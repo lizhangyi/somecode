@@ -7,7 +7,8 @@
         <span class="logo-text">无界微前端 Demo</span>
       </div>
       <el-menu
-        :default-active="activeMenu"
+        :key="menuKey"
+        :default-active="route.path"
         background-color="#304156"
         text-color="#bfcbd9"
         active-text-color="#409EFF"
@@ -59,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { bus } from 'wujie'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -67,8 +68,10 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 const route = useRoute()
 const router = useRouter()
 
-const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => (route.meta.title as string) || '无界微前端')
+
+// 菜单 key，拒绝导航时递增以强制重建菜单恢复高亮
+const menuKey = ref(0)
 
 // 当前活跃的 wujie 子应用名称（用于定向询问）
 const currentSubAppName = computed(() => {
@@ -105,7 +108,7 @@ async function handleMenuSelect(index: string) {
   console.log(`%c[主应用] 向 ${subApp} 询问是否允许切换`, 'color: #409EFF; font-weight: bold;')
 
   // 等待子应用回复（最多等 3 秒）
-  const allowed = await waitForNavigationResponse(requestId, 3000)
+  const allowed = await waitForNavigationResponse(requestId, subApp, 3000)
 
   if (allowed) {
     console.log(`%c[主应用] ${subApp} 允许切换`, 'color: #52c41a;')
@@ -113,13 +116,15 @@ async function handleMenuSelect(index: string) {
   } else {
     console.log(`%c[主应用] ${subApp} 拒绝切换`, 'color: #f5222d;')
     ElMessage.warning(`子应用 [${subApp}] 拒绝了页面切换，请先处理当前页面的未完成操作`)
+    // 路由未变，但 el-menu 内部高亮已偏移，递增 key 强制重建菜单
+    menuKey.value++
   }
 }
 
 /**
  * 等待子应用回复
  */
-function waitForNavigationResponse(requestId: string, timeout: number): Promise<boolean> {
+function waitForNavigationResponse(requestId: string, subAppName: string, timeout: number): Promise<boolean> {
   return new Promise((resolve) => {
     pendingResolve = resolve
 
@@ -155,7 +160,7 @@ function waitForNavigationResponse(requestId: string, timeout: number): Promise<
     bus.$on('navigationResponse', onResponse)
 
     // 发起询问
-    bus.$emit('requestNavigation', { requestId, targetPath: route.path })
+    bus.$emit('requestNavigation', { requestId, subAppName, targetPath: route.path })
   })
 }
 </script>

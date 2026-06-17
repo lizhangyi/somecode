@@ -23,7 +23,11 @@ function App() {
     }
 
     // 监听主应用的导航询问，始终允许切换
-    const navHandler = (data: { requestId: string; targetPath: string }) => {
+    const navHandler = (data: { requestId: string; subAppName: string; targetPath: string }) => {
+      // 只响应发给自己的询问
+      const myName = (window as any).__WUJIE?.id
+      if (data.subAppName && myName && data.subAppName !== myName) return
+
       console.log('%c[sub-react] 收到导航询问，允许切换', 'color: #52c41a; font-weight: bold;')
       bus.$emit('navigationResponse', {
         requestId: data.requestId,

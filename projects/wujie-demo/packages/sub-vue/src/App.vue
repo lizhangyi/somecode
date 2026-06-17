@@ -97,9 +97,13 @@ const pendingTodos = computed(() => todos.filter(t => !t.done))
  * 监听主应用的导航询问
  * 如果有未完成的待办事项，拒绝切换并说明原因
  */
-function handleNavigationRequest(data: { requestId: string; targetPath: string }) {
+function handleNavigationRequest(data: { requestId: string; subAppName: string; targetPath: string }) {
   const bus = (window as any).$wujie?.bus
   if (!bus) return
+
+  // 只响应发给自己的询问（保活状态下其他子应用也可能收到广播）
+  const myName = (window as any).__WUJIE?.id
+  if (data.subAppName && myName && data.subAppName !== myName) return
 
   const unfinished = todos.filter(t => !t.done)
   if (unfinished.length > 0) {
