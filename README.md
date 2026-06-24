@@ -26,18 +26,43 @@ npm run dev
 ### 2. 贪吃蛇游戏
 
 **路径**: `projects/snake-game/`
-**技术栈**: 原生 HTML/CSS/JavaScript + Canvas API
+**技术栈**: Vite 6 + TypeScript + Tailwind CSS 4 + Canvas API
 
 **玩法**:
 - 方向键或 WASD 控制移动
 - 空格键开始/重新开始
 - P 键暂停
 
-**运行方式**: 直接用浏览器打开 `projects/snake-game/index.html`
+**运行方式**:
+```bash
+cd projects/snake-game
+npm install
+npm run dev
+```
 
 ---
 
-### 3. 吸顶表格
+### 3. WordMaster 背单词
+
+**路径**: `projects/wordmaster/`
+**技术栈**: 纯原生 HTML/CSS/JS（零依赖）+ IndexedDB + Service Worker + PWA
+
+**功能**:
+- 基于 SM-2 间隔重复算法的记忆系统
+- 内置 210 个雅思 + 六级高频词汇
+- IndexedDB 本地持久化存储
+- 支持 PWA（可添加到主屏幕离线使用）
+
+**运行方式**:
+```bash
+# 在项目根目录下启动本地服务器
+python -m http.server 8080
+# 访问 http://localhost:8080/projects/wordmaster/
+```
+
+---
+
+### 4. 吸顶表格
 
 **路径**: `projects/data-table/`
 **技术栈**: 原生 HTML/CSS/JavaScript
@@ -52,7 +77,7 @@ npm run dev
 
 ---
 
-### 4. 无界微前端 Demo
+### 5. 无界微前端 Demo
 
 **路径**: `projects/wujie-demo/`
 **技术栈**: Vue 3 + React + Vite + Element Plus + Wujie (无界微前端框架)
@@ -101,4 +126,4 @@ cd projects/wujie-demo/packages/main-app && npm install && npm run dev
 
 ---
 
-*最后更新: 2026-06-17*
+*最后更新: 2026-06-24*
