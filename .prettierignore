@@ -1,0 +1,20 @@
+# 忽略文件
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# 静态项目不需要格式化
+projects/data-table/
+projects/wordmaster/
+
+# 构建产物
+**/dist/
+**/build/
+**/.turbo/
+
+# 锁文件不格式化
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
