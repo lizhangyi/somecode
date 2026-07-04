@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowChart Canvas</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='2' y='4' width='10' height='8' rx='2' fill='%234e7eff'/><rect x='20' y='20' width='10' height='8' rx='2' fill='%2300b894'/><path d='M12 8 L20 20' stroke='%237878b4' stroke-width='2' fill='none' marker-end='url(%23a)'/><defs><marker id='a' markerWidth='6' markerHeight='6' refX='4' refY='3' orient='auto'><path d='M0 0 L6 3 L0 6' fill='%237878b4'/></marker></defs></svg>" />
+</head>
+<body>
+  <div id="app">
+    <!-- Toolbar -->
+    <div id="toolbar" class="toolbar">
+      <!-- 左侧：更多操作 -->
+      <div class="toolbar-left">
+        <button class="tool-btn tool-more-btn" id="tool-more-btn" title="更多操作">☰</button>
+        <div id="more-menu" class="more-menu">
+          <div class="more-item" data-action="import">📂 导入 JSON</div>
+          <div class="more-item" data-action="export">💾 导出 JSON</div>
+          <div class="more-item" style="border-top:1px solid #0f3460;margin-top:4px;padding-top:8px;" data-action="new-canvas">🗑️ 新建画布</div>
+        </div>
+      </div>
+
+      <!-- 中间：主要功能按钮（绝对定位居中） -->
+      <div class="toolbar-center">
+        <div class="toolbar-group">
+          <button class="tool-btn" data-action="add-node" data-shape="rect" title="矩形节点">▭</button>
+          <button class="tool-btn" data-action="add-node" data-shape="round-rect" title="圆角矩形节点">▢</button>
+          <button class="tool-btn" data-action="add-node" data-shape="diamond" title="菱形节点">◇</button>
+          <button class="tool-btn" data-action="add-node" data-shape="circle" title="圆形节点">○</button>
+        </div>
+        <div class="toolbar-divider"></div>
+        <div class="toolbar-group">
+          <button class="tool-btn" data-action="undo" title="撤销 (Ctrl+Z)">↶</button>
+          <button class="tool-btn" data-action="redo" title="重做 (Ctrl+Y)">↷</button>
+        </div>
+        <div class="toolbar-divider"></div>
+        <div class="toolbar-group">
+          <button class="tool-btn" data-action="zoom-out" title="缩小">−</button>
+          <div id="zoom-widget" class="zoom-widget">
+            <span id="zoom-display" class="zoom-display">100%</span>
+            <div id="zoom-dropdown" class="zoom-dropdown">
+              <div class="zoom-option" data-zoom="0.5">50%</div>
+              <div class="zoom-option" data-zoom="1">100%</div>
+              <div class="zoom-option" data-zoom="2">200%</div>
+            </div>
+            <input id="zoom-input" class="zoom-input" type="text" />
+          </div>
+          <button class="tool-btn" data-action="zoom-in" title="放大">+</button>
+          <button id="fit-btn" class="tool-btn" data-action="fit" title="适配视图">⤢</button>
+          <button class="tool-btn" data-action="toggle-snap" title="对齐网格">⊞</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main area -->
+    <div class="main-area">
+      <!-- Canvas -->
+      <div id="canvas-container" class="canvas-container">
+        <canvas id="canvas"></canvas>
+        <input id="text-editor" class="text-editor" type="text" />
+        <input type="file" id="file-input" accept=".json" style="display:none" />
+      </div>
+
+      <!-- Panel Toggle Handle -->
+      <button id="panel-toggle" class="panel-toggle-handle" title="收起面板">◂</button>
+
+      <!-- Property Panel -->
+      <div id="property-panel" class="property-panel">
+        <div class="property-empty">选中节点以编辑属性</div>
+        <div class="property-content" style="display:none">
+          <div class="property-row">
+            <label>类型</label>
+            <span id="prop-shape"></span>
+          </div>
+          <div class="property-row">
+            <label>文字</label>
+            <input id="prop-text" type="text" />
+          </div>
+          <div class="property-row">
+            <label>宽度</label>
+            <input id="prop-width" type="number" min="40" max="400" />
+          </div>
+          <div class="property-row">
+            <label>高度</label>
+            <input id="prop-height" type="number" min="30" max="300" />
+          </div>
+          <div class="property-row">
+            <label>颜色</label>
+            <input id="prop-color" type="color" />
+          </div>
+          <div class="property-row">
+            <button id="prop-delete" class="delete-btn">删除节点</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
