@@ -215,7 +215,7 @@ function getStreak(): Promise<number> {
 
 // ---- 设置操作 ----
 
-function getSetting(key: string, defaultValue: number | string | boolean = null): Promise<number | string | boolean | null> {
+function getSetting(key: string, defaultValue: number | string | boolean | null = null): Promise<number | string | boolean | null> {
   return new Promise((resolve, reject) => {
     openDB().then((database) => {
       const tx = database.transaction('settings', 'readonly')

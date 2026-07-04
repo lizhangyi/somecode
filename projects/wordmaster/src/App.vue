@@ -19,9 +19,13 @@ const {
   setupInstallPrompt,
 } = useWordMaster()
 
+function handleReload() {
+  window.location.reload()
+}
+
 onMounted(async () => {
   await init()
-  setupInstallPrompt()
+  // setupInstallPrompt() 已在模块顶层立即注册，此处不再调用
 })
 </script>
 
@@ -33,7 +37,7 @@ onMounted(async () => {
   <div v-else-if="initError" class="flex flex-col items-center justify-center min-h-screen text-red-400 p-6 text-center">
     <div class="text-xl mb-4">⚠️ 初始化失败</div>
     <div class="bg-slate-800 p-4 rounded text-sm text-left max-w-md overflow-auto">{{ initError }}</div>
-    <button class="mt-4 px-4 py-2 bg-slate-700 rounded" @click="location.reload()">重新加载</button>
+    <button class="mt-4 px-4 py-2 bg-slate-700 rounded" @click="handleReload">重新加载</button>
   </div>
 
   <template v-else>

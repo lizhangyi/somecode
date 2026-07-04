@@ -24,6 +24,10 @@ const dailyGoal = ref(30)
 const studyCount = ref(0)
 const isInitialized = ref(false)
 
+// 正面和背面各自持有独立的数据副本，彻底避免翻转期间内容错乱
+const frontCard = ref<WordCard | null>(null)
+const backCard = ref<WordCard | null>(null)
+
 // ---- 学习页逻辑 ----
 async function refreshLearnPage() {
   const dueCards = await getDueCards(dailyGoal.value)
@@ -44,27 +48,15 @@ async function refreshLearnPage() {
   isFlipped.value = false
   studyCount.value = 0
 
+  // 初始化正背面数据副本
+  frontCard.value = cards.value[0] ?? null
+  backCard.value = cards.value[0] ?? null
+
   if (cards.value.length === 0) {
-    showDone()
+    isDone.value = true
+  } else {
+    isDone.value = false
   }
-}
-
-const currentCard = computed<WordCard | null>(() => {
-  if (currentIndex.value >= cards.value.length) return null
-  return cards.value[currentIndex.value] ?? null
-})
-
-function showCard() {
-  isFlipped.value = false
-}
-
-function showDone() {
-  isDone.value = true
-}
-
-function toggleFlip() {
-  if (cards.value.length === 0) return
-  isFlipped.value = !isFlipped.value
 }
 
 const progressPct = computed(() => {
@@ -80,6 +72,18 @@ const progressRemain = computed(() => {
 
 const isDone = ref(false)
 const doneCount = computed(() => studyCount.value)
+
+function toggleFlip() {
+  if (cards.value.length === 0) return
+
+  if (!isFlipped.value) {
+    // 当前是正面，即将翻到背面 → 先更新背面数据（此时背面不可见，不会闪现）
+    backCard.value = frontCard.value
+  }
+  // 翻到正面时不需要更新 frontCard（frontCard 在 handleRating 里已经更新好了）
+
+  isFlipped.value = !isFlipped.value
+}
 
 async function handleRating(quality: number) {
   if (cards.value.length === 0) return
@@ -105,7 +109,20 @@ async function handleRating(quality: number) {
   })
 
   studyCount.value++
+
+  // 先推进索引
   currentIndex.value++
+
+  // 如果还有词，提前准备好下一个词的正面数据
+  // 此时如果卡片是背面朝上，正面不可见，更新 frontCard 不会闪现
+  if (currentIndex.value < cards.value.length) {
+    frontCard.value = cards.value[currentIndex.value]
+  } else {
+    frontCard.value = null
+  }
+
+  // 翻回正面（显示下一个词的英文）
+  isFlipped.value = false
 
   if (navigator.vibrate) {
     const pattern = quality >= 4 ? [10] : quality >= 3 ? [20] : [30, 50, 30]
@@ -180,7 +197,7 @@ async function init() {
     }, 5000)
   } catch (e: any) {
     initError.value = e?.message || String(e)
-    console.error('WordMaster init failed:', e)
+    console.error('[WordMaster] init failed:', e)
   }
 }
 
@@ -191,12 +208,17 @@ const topLearned = ref(0)
 const showInstallBanner = ref(false)
 let deferredPrompt: any = null
 
-function setupInstallPrompt() {
+if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('[WordMaster] beforeinstallprompt fired')
     e.preventDefault()
     deferredPrompt = e
     showInstallBanner.value = true
   })
+}
+
+function setupInstallPrompt() {
+  // 实际逻辑已在上面立即注册
 }
 
 async function installApp() {
@@ -226,6 +248,10 @@ export function useWordMaster() {
     isDone,
     initError,
 
+    // 卡片数据（正背面独立副本）
+    frontCard,
+    backCard,
+
     // 计算属性
     progressPct,
     progressText,
@@ -239,8 +265,6 @@ export function useWordMaster() {
     showInstallBanner,
 
     // 方法
-    currentCard,
-    showCard,
     toggleFlip,
     handleRating,
     refreshLearnPage,

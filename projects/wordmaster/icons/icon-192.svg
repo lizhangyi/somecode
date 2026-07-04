@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" rx="40" fill="#3b82f6"/>
-  <text x="96" y="108" text-anchor="middle" font-family="system-ui,sans-serif" font-size="72" font-weight="700" fill="white">W</text>
-  <rect x="26" y="130" width="140" height="6" rx="3" fill="rgba(255,255,255,0.4)"/>
-  <rect x="36" y="144" width="120" height="6" rx="3" fill="rgba(255,255,255,0.3)"/>
-  <rect x="56" y="158" width="80" height="6" rx="3" fill="rgba(255,255,255,0.2)"/>
-</svg>
