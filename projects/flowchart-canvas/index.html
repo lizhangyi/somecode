@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FlowChart Canvas</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='2' y='4' width='10' height='8' rx='2' fill='%234e7eff'/><rect x='20' y='20' width='10' height='8' rx='2' fill='%2300b894'/><path d='M12 8 L20 20' stroke='%237878b4' stroke-width='2' fill='none' marker-end='url(%23a)'/><defs><marker id='a' markerWidth='6' markerHeight='6' refX='4' refY='3' orient='auto'><path d='M0 0 L6 3 L0 6' fill='%237878b4'/></marker></defs></svg>" />
+  <script>
+    // 自动注销所有遗留的 Service Worker（防止旧项目的 SW 拦截请求）
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
+      });
+    }
+  </script>
 </head>
 <body>
   <div id="app">
@@ -16,7 +24,7 @@
         <div id="more-menu" class="more-menu">
           <div class="more-item" data-action="import">📂 导入 JSON</div>
           <div class="more-item" data-action="export">💾 导出 JSON</div>
-          <div class="more-item" style="border-top:1px solid #0f3460;margin-top:4px;padding-top:8px;" data-action="new-canvas">🗑️ 新建画布</div>
+          <div class="more-item" data-action="new-canvas">🗑️ 新建画布</div>
         </div>
       </div>
 
@@ -49,6 +57,7 @@
           <button id="fit-btn" class="tool-btn" data-action="fit" title="适配视图">⤢</button>
           <button class="tool-btn" data-action="toggle-snap" title="对齐网格">⊞</button>
           <button class="tool-btn" id="toggle-line-type" data-action="toggle-line-type" title="切换连线类型（曲线/正交）">⟰</button>
+          <button class="tool-btn" id="toggle-theme" data-action="toggle-theme" title="切换主题（深色/浅色）">🌙</button>
         </div>
       </div>
     </div>

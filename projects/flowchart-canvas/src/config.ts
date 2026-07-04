@@ -18,8 +18,8 @@ export const NODE_COLORS: Record<NodeShape, string> = {
   circle: '#a29bfe',
 }
 
-/** 主题色 */
-export const THEME = {
+/** 深色主题色 */
+const THEME_DARK = {
   background: '#1a1a2e',
   grid: 'rgba(255, 255, 255, 0.04)',
   gridMajor: 'rgba(255, 255, 255, 0.08)',
@@ -34,7 +34,36 @@ export const THEME = {
   selectedOutline: '#00d4ff',
   selectionBox: 'rgba(0, 212, 255, 0.1)',
   selectionBoxBorder: 'rgba(0, 212, 255, 0.4)',
-} as const
+}
+
+/** 浅色主题色 */
+const THEME_LIGHT = {
+  background: '#f5f6fa',
+  grid: 'rgba(0, 0, 0, 0.05)',
+  gridMajor: 'rgba(0, 0, 0, 0.1)',
+  nodeFill: 'rgba(255, 255, 255, 0.92)',
+  nodeStroke: '#4e7eff',
+  nodeText: '#333333',
+  edge: 'rgba(80, 80, 100, 0.5)',
+  edgeSelected: '#4e7eff',
+  anchor: '#4e7eff',
+  anchorHover: '#0099cc',
+  tempEdge: 'rgba(78, 126, 255, 0.5)',
+  selectedOutline: '#0099cc',
+  selectionBox: 'rgba(0, 153, 204, 0.1)',
+  selectionBoxBorder: 'rgba(0, 153, 204, 0.4)',
+}
+
+/** 当前主题色（可变对象，通过 applyTheme 切换） */
+export const THEME = { ...THEME_DARK }
+
+/** 应用主题 */
+export function applyTheme(mode: 'dark' | 'light') {
+  const source = mode === 'dark' ? THEME_DARK : THEME_LIGHT
+  Object.keys(THEME).forEach(key => {
+    ;(THEME as any)[key] = (source as any)[key]
+  })
+}
 
 /** 锚点半径（屏幕像素） */
 export const ANCHOR_RADIUS = 6

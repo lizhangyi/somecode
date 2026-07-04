@@ -5,7 +5,7 @@ import { nodes, edges, selectedIds, interactionState, tempConnection, boxSelectS
 import { THEME } from './config'
 import { drawGrid } from './grid'
 import { drawNode } from './nodes'
-import { drawEdge, drawTempEdge } from './edges'
+import { drawEdge, drawTempEdge, drawEdgeEndpoints } from './edges'
 import { drawAnchors, drawTargetAnchors } from './anchors'
 
 /**
@@ -30,8 +30,8 @@ export function render() {
     drawEdge(edge)
   }
 
-  // 5. 临时连线（connecting状态）
-  if (interactionState === 'connecting' && tempConnection) {
+  // 5. 临时连线（connecting / reconnecting 状态）
+  if ((interactionState === 'connecting' || interactionState === 'reconnecting') && tempConnection) {
     drawTempEdge()
   }
 
@@ -46,11 +46,19 @@ export function render() {
     if (node) drawAnchors(node)
   }
 
-  // 7.5 连线状态下悬浮目标节点的锚点
-  if (interactionState === 'connecting' && hoveredAnchorNodeId) {
+  // 7.5 连线/重连状态下悬浮目标节点的锚点
+  if ((interactionState === 'connecting' || interactionState === 'reconnecting') && hoveredAnchorNodeId) {
     const node = nodes.get(hoveredAnchorNodeId)
     if (node && !selectedIds.has(node.id)) {
       drawTargetAnchors(node, hoveredAnchorDir)
+    }
+  }
+
+  // 7.6 选中连线的端点手柄（idle 状态下显示）
+  if (interactionState === 'idle') {
+    for (const id of selectedIds) {
+      const edge = edges.get(id)
+      if (edge) drawEdgeEndpoints(edge)
     }
   }
 

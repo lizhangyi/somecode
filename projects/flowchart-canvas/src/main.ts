@@ -10,6 +10,7 @@ import {
   addNode, addEdge, setScale, snapToGrid, toggleSnapToGrid,
   loadState, saveState, clearState, resetViewport,
   defaultLineType, toggleDefaultLineType, setDefaultLineType,
+  colorMode, toggleColorMode, setColorMode,
 } from './state'
 import { execute, undo, redo, canUndo, canRedo } from './history'
 import { exportJSON, importJSON, downloadJSON } from './serializer'
@@ -252,6 +253,12 @@ toolbar.addEventListener('click', (e) => {
       forceRender(render)
       break
     }
+    case 'toggle-theme': {
+      toggleColorMode()
+      updateThemeButton()
+      forceRender(render)
+      break
+    }
   }
 })
 
@@ -409,6 +416,15 @@ function updateLineTypeButton() {
   btn.classList.toggle('active', isOrth)
 }
 
+// --- 主题切换按钮更新 ---
+function updateThemeButton() {
+  const btn = document.getElementById('toggle-theme') as HTMLButtonElement | null
+  if (!btn) return
+  const isDark = colorMode === 'dark'
+  btn.textContent = isDark ? '🌙' : '☀️'
+  btn.title = isDark ? '当前：深色模式（点击切换为浅色）' : '当前：浅色模式（点击切换为深色）'
+}
+
 // --- 工具栏状态更新 ---
 function updateToolbarState() {
   const undoBtn = toolbar.querySelector('[data-action="undo"]') as HTMLButtonElement
@@ -485,6 +501,7 @@ moreMenu.addEventListener('click', (e) => {
     updateZoomDisplay()
     updateFitButton()
     updateToolbarState()
+    updateThemeButton()
     updatePropertyPanel()
     forceRender(render)
   }
@@ -505,7 +522,10 @@ function checkSelectionChange() {
 requestAnimationFrame(checkSelectionChange)
 
 // --- 初始化 ---
+// 确保 HTML data-theme 属性与 colorMode 同步（loadState 可能已设置）
+document.documentElement.setAttribute('data-theme', colorMode)
 updateToolbarState()
+updateThemeButton()
 updateFitButton()
 updateZoomDisplay()
 forceRender(render)

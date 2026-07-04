@@ -1,5 +1,50 @@
 @import 'tailwindcss';
 
+/* --- CSS Variables: Dark Theme (default) --- */
+:root,
+[data-theme='dark'] {
+  --c-bg: #1a1a2e;
+  --c-toolbar-bg: #16213e;
+  --c-panel-bg: #16213e;
+  --c-border: #0f3460;
+  --c-border-light: #1a1a4e;
+  --c-text: #e0e0e0;
+  --c-text-muted: #a0a0c0;
+  --c-text-dim: #8080a0;
+  --c-text-faint: #606080;
+  --c-text-disabled: #505070;
+  --c-hover-bg: #1a1a4e;
+  --c-hover-text: #e0e0ff;
+  --c-input-bg: #1a1a2e;
+  --c-accent: #4e7eff;
+  --c-accent-hover: #00d4ff;
+  --c-danger: #e94560;
+  --c-danger-hover: #c81e3a;
+  --c-shadow: rgba(0, 0, 0, 0.4);
+}
+
+/* --- CSS Variables: Light Theme --- */
+[data-theme='light'] {
+  --c-bg: #f5f6fa;
+  --c-toolbar-bg: #ffffff;
+  --c-panel-bg: #ffffff;
+  --c-border: #e0e0e8;
+  --c-border-light: #e8eaf0;
+  --c-text: #333333;
+  --c-text-muted: #666666;
+  --c-text-dim: #888888;
+  --c-text-faint: #aaaaaa;
+  --c-text-disabled: #cccccc;
+  --c-hover-bg: #e8eaf0;
+  --c-hover-text: #1a1a2e;
+  --c-input-bg: #ffffff;
+  --c-accent: #4e7eff;
+  --c-accent-hover: #0099cc;
+  --c-danger: #e94560;
+  --c-danger-hover: #c81e3a;
+  --c-shadow: rgba(0, 0, 0, 0.12);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -11,8 +56,9 @@ html, body {
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  transition: background 0.2s, color 0.2s;
 }
 
 #app {
@@ -27,21 +73,21 @@ html, body {
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  background: #16213e;
-  border-bottom: 1px solid #0f3460;
+  background: var(--c-toolbar-bg);
+  border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
   position: relative;
-  /* 不用 justify-content:center，改成三栏：左 | 中 | 右 */
+  transition: background 0.2s, border-color 0.2s;
 }
 
-/* 左侧收纳：正常流，排最前 */
+/* 左侧收纳 */
 .toolbar-left {
-  /* 不脱离文档流，order:-1 确保排最前 */
+  position: relative;
   order: -1;
   z-index: 5;
 }
 
-/* 中间内容：绝对定位居中，不受左右影响 */
+/* 中间内容：绝对定位居中 */
 .toolbar-center {
   position: absolute;
   left: 50%;
@@ -61,7 +107,7 @@ html, body {
 .toolbar-divider {
   width: 1px;
   height: 24px;
-  background: #0f3460;
+  background: var(--c-border);
   margin: 0 4px;
 }
 
@@ -73,7 +119,7 @@ html, body {
   height: 32px;
   border: 1px solid transparent;
   background: transparent;
-  color: #a0a0c0;
+  color: var(--c-text-muted);
   font-size: 18px;
   cursor: pointer;
   border-radius: 6px;
@@ -81,19 +127,19 @@ html, body {
 }
 
 .tool-btn:hover {
-  background: #1a1a4e;
-  border-color: #0f3460;
-  color: #e0e0ff;
+  background: var(--c-hover-bg);
+  border-color: var(--c-border);
+  color: var(--c-hover-text);
 }
 
 .tool-btn:active {
-  background: #0f3460;
+  background: var(--c-border);
 }
 
 .tool-btn.active {
-  background: #1a1a4e;
-  border-color: #4e7eff;
-  color: #4e7eff;
+  background: var(--c-hover-bg);
+  border-color: var(--c-accent);
+  color: var(--c-accent);
 }
 
 /* --- Zoom Widget --- */
@@ -105,7 +151,7 @@ html, body {
 
 .zoom-display {
   font-size: 13px;
-  color: #8080a0;
+  color: var(--c-text-dim);
   min-width: 48px;
   text-align: center;
   user-select: none;
@@ -115,8 +161,8 @@ html, body {
   transition: background 0.15s, color 0.15s;
 }
 .zoom-display:hover {
-  background: #1a1a4e;
-  color: #e0e0ff;
+  background: var(--c-hover-bg);
+  color: var(--c-hover-text);
 }
 
 /* 下拉面板 */
@@ -127,13 +173,14 @@ html, body {
   left: 50%;
   transform: translateX(-50%);
   margin-top: 4px;
-  background: #16213e;
-  border: 1px solid #0f3460;
+  background: var(--c-toolbar-bg);
+  border: 1px solid var(--c-border);
   border-radius: 8px;
   padding: 4px;
   z-index: 100;
   min-width: 80px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 16px var(--c-shadow);
+  transition: background 0.2s, border-color 0.2s;
 }
 .zoom-dropdown.open {
   display: block;
@@ -141,15 +188,15 @@ html, body {
 .zoom-option {
   padding: 6px 12px;
   font-size: 13px;
-  color: #a0a0c0;
+  color: var(--c-text-muted);
   cursor: pointer;
   border-radius: 4px;
   text-align: center;
   transition: background 0.12s, color 0.12s;
 }
 .zoom-option:hover {
-  background: #1a1a4e;
-  color: #e0e0ff;
+  background: var(--c-hover-bg);
+  color: var(--c-hover-text);
 }
 
 /* 直接编辑输入框 */
@@ -163,17 +210,17 @@ html, body {
   width: 72px;
   padding: 6px 8px;
   font-size: 13px;
-  color: #e0e0ff;
-  background: #16213e;
-  border: 1px solid #4e7eff;
+  color: var(--c-text);
+  background: var(--c-toolbar-bg);
+  border: 1px solid var(--c-accent);
   border-radius: 6px;
   text-align: center;
   outline: none;
   z-index: 100;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 16px var(--c-shadow);
 }
 .zoom-input::placeholder {
-  color: #505070;
+  color: var(--c-text-disabled);
 }
 
 /* --- Main Area --- */
@@ -214,10 +261,10 @@ html, body {
 .text-editor {
   position: absolute;
   display: none;
-  border: 2px solid #4e7eff;
+  border: 2px solid var(--c-accent);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: var(--c-bg);
+  color: var(--c-text);
   font-size: 14px;
   padding: 2px 6px;
   outline: none;
@@ -228,13 +275,13 @@ html, body {
 /* --- Property Panel --- */
 .property-panel {
   width: 240px;
-  background: #16213e;
-  border-left: 1px solid #0f3460;
+  background: var(--c-panel-bg);
+  border-left: 1px solid var(--c-border);
   padding: 16px;
   overflow-y: auto;
   flex-shrink: 0;
   position: relative;
-  transition: width 0.2s ease, padding 0.2s ease, border 0.2s ease;
+  transition: width 0.2s ease, padding 0.2s ease, border 0.2s ease, background 0.2s;
 }
 
 .property-panel.collapsed {
@@ -252,11 +299,11 @@ html, body {
   transform: translateY(-50%);
   width: 20px;
   height: 48px;
-  background: #16213e;
-  border: 1px solid #0f3460;
+  background: var(--c-panel-bg);
+  border: 1px solid var(--c-border);
   border-right: none;
   border-radius: 6px 0 0 6px;
-  color: #8080a0;
+  color: var(--c-text-dim);
   font-size: 12px;
   cursor: pointer;
   display: flex;
@@ -268,8 +315,8 @@ html, body {
 }
 
 .panel-toggle-handle:hover {
-  color: #e0e0e0;
-  background: #1a1a4e;
+  color: var(--c-text);
+  background: var(--c-hover-bg);
 }
 
 .main-area.panel-collapsed .panel-toggle-handle {
@@ -279,7 +326,7 @@ html, body {
 }
 
 .property-empty {
-  color: #606080;
+  color: var(--c-text-faint);
   font-size: 13px;
   text-align: center;
   margin-top: 40px;
@@ -294,38 +341,39 @@ html, body {
 
 .property-row label {
   font-size: 13px;
-  color: #8080a0;
+  color: var(--c-text-dim);
   width: 48px;
   flex-shrink: 0;
 }
 
 .property-row span {
   font-size: 13px;
-  color: #e0e0e0;
+  color: var(--c-text);
 }
 
 .property-row input[type="text"],
 .property-row input[type="number"] {
   flex: 1;
-  background: #1a1a2e;
-  border: 1px solid #0f3460;
+  background: var(--c-input-bg);
+  border: 1px solid var(--c-border);
   border-radius: 4px;
-  color: #e0e0e0;
+  color: var(--c-text);
   padding: 4px 8px;
   font-size: 13px;
   outline: none;
   width: 100%;
+  transition: border-color 0.15s;
 }
 
 .property-row input[type="text"]:focus,
 .property-row input[type="number"]:focus {
-  border-color: #4e7eff;
+  border-color: var(--c-accent);
 }
 
 .property-row input[type="color"] {
   width: 32px;
   height: 28px;
-  border: 1px solid #0f3460;
+  border: 1px solid var(--c-border);
   border-radius: 4px;
   background: transparent;
   cursor: pointer;
@@ -335,7 +383,7 @@ html, body {
 .delete-btn {
   width: 100%;
   padding: 6px 12px;
-  background: #e94560;
+  background: var(--c-danger);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -345,17 +393,17 @@ html, body {
 }
 
 .delete-btn:hover {
-  background: #c81e3a;
+  background: var(--c-danger-hover);
 }
 
 /* --- Context Menu --- */
 .context-menu {
   min-width: 160px;
-  background: #16213e;
-  border: 1px solid #0f3460;
+  background: var(--c-panel-bg);
+  border: 1px solid var(--c-border);
   border-radius: 8px;
   padding: 4px 0;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px var(--c-shadow);
   font-size: 13px;
   user-select: none;
 }
@@ -365,18 +413,18 @@ html, body {
   align-items: center;
   padding: 6px 12px;
   cursor: pointer;
-  color: #d0d0e0;
+  color: var(--c-text);
   transition: background 0.1s;
   position: relative;
 }
 
 .ctx-item:hover {
-  background: #1a1a4e;
-  color: #fff;
+  background: var(--c-hover-bg);
+  color: var(--c-hover-text);
 }
 
 .ctx-item.ctx-disabled {
-  color: #505070;
+  color: var(--c-text-disabled);
   cursor: default;
 }
 
@@ -399,20 +447,16 @@ html, body {
 .ctx-arrow {
   margin-left: 12px;
   font-size: 10px;
-  color: #606080;
+  color: var(--c-text-faint);
 }
 
 .ctx-divider {
   height: 1px;
-  background: #0f3460;
+  background: var(--c-border);
   margin: 4px 0;
 }
 
 /* --- More Menu (收纳) --- */
-.toolbar-left {
-  position: relative;
-}
-
 .tool-more-btn {
   font-size: 16px !important;
 }
@@ -424,13 +468,14 @@ html, body {
   left: 0;
   margin-top: 4px;
   min-width: 140px;
-  background: #16213e;
-  border: 1px solid #0f3460;
+  background: var(--c-panel-bg);
+  border: 1px solid var(--c-border);
   border-radius: 8px;
   padding: 4px 0;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px var(--c-shadow);
   z-index: 100;
   user-select: none;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .more-menu.open {
@@ -440,13 +485,21 @@ html, body {
 .more-item {
   padding: 8px 16px;
   font-size: 13px;
-  color: #d0d0e0;
+  color: var(--c-text);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   white-space: nowrap;
 }
 
 .more-item:hover {
-  background: #1a1a4e;
-  color: #fff;
+  background: var(--c-hover-bg);
+  color: var(--c-hover-text);
+}
+
+.more-menu .ctx-divider {
+  border-top: 1px solid var(--c-border);
+  margin-top: 4px;
+  padding-top: 8px;
+  height: 0;
+  background: transparent;
 }

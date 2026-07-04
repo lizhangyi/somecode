@@ -2,8 +2,8 @@
 
 import type { FlowEdge, FlowNode, Point, AnchorDir, LineType } from './types'
 import { ctx } from './canvas'
-import { viewport, nodes, edges, tempConnection, isSelected } from './state'
-import { THEME, EDGE_HIT_THRESHOLD } from './config'
+import { viewport, nodes, edges, tempConnection, isSelected, hoveredEdgeEnd } from './state'
+import { THEME, EDGE_HIT_THRESHOLD, ANCHOR_RADIUS, ANCHOR_HIT_RADIUS } from './config'
 import { getControlPoints, cubicBezier, bezierTangent, distToBezier } from './utils/bezier'
 import { distToSegment } from './utils/geometry'
 import { getAnchorPosition } from './anchors'
@@ -16,43 +16,41 @@ function getLineType(edge: FlowEdge): LineType {
 }
 
 /**
- * 计算正交折线的路径点
- * 返回 [p0, turn1, turn2, p3] 四个点
+ * 计算正交折线的完整绘制路径点（含起点 p0 和终点 p3）
+ * 返回 [p0, s, turn1, ..., t, p3]
  */
 function getOrthogonalPath(
   p0: Point, dir0: AnchorDir,
   p3: Point, dir3: AnchorDir,
   offset: number = 20
 ): Point[] {
-  // 从锚点沿方向延伸 offset
+  // 从锚点沿方向延伸 offset 作为转弯起始点
   const s = anchorOffset(p0, dir0, offset)
   const t = anchorOffset(p3, dir3, offset)
 
-  // 判断两个锚点方向是否平行（都是水平或都是垂直）
   const dir0IsH = dir0 === 'left' || dir0 === 'right'
   const dir3IsH = dir3 === 'left' || dir3 === 'right'
 
   if (dir0IsH === dir3IsH) {
-    // 同方向：需要两个转弯点
-    // 设中间参考线位置
+    // 同方向：两个转弯点
     const midX = (s.x + t.x) / 2
     const midY = (s.y + t.y) / 2
 
     if (dir0IsH) {
-      // 都是水平方向：先竖再横再竖
-      return [s, { x: s.x, y: midY }, { x: t.x, y: midY }, t]
+      // 水平→竖→横→竖→水平
+      return [p0, s, { x: s.x, y: midY }, { x: t.x, y: midY }, t, p3]
     } else {
-      // 都是垂直方向：先横再竖再横
-      return [s, { x: midX, y: s.y }, { x: midX, y: t.y }, t]
+      // 垂直→横→竖→横→垂直
+      return [p0, s, { x: midX, y: s.y }, { x: midX, y: t.y }, t, p3]
     }
   } else {
-    // 不同方向：一个转弯点即可
+    // 不同方向：一个转弯点
     if (dir0IsH) {
       // 源水平，目标垂直
-      return [s, { x: t.x, y: s.y }, t]
+      return [p0, s, { x: t.x, y: s.y }, t, p3]
     } else {
       // 源垂直，目标水平
-      return [s, { x: s.x, y: t.y }, t]
+      return [p0, s, { x: s.x, y: t.y }, t, p3]
     }
   }
 }
@@ -98,17 +96,16 @@ export function drawEdge(edge: FlowEdge) {
     ctx.stroke()
     drawArrow(p2, p3, scale, selected, 'bezier')
   } else {
-    // orthogonal
+    // orthogonal — path 包含 [p0, s, ..., t, p3]
     const path = getOrthogonalPath(p0, edge.sourceAnchor, p3, edge.targetAnchor)
     ctx.moveTo(path[0].x, path[0].y)
     for (let i = 1; i < path.length; i++) {
-      if (path[i].x === path[i - 1].x && path[i].y === path[i - 1].y) continue
       ctx.lineTo(path[i].x, path[i].y)
     }
     ctx.stroke()
-    // 箭头：用最后一段的方向
+    // 箭头：尖端在 p3，用最后一段线段方向
     const lastSegStart = path[path.length - 2]
-    const lastSegEnd = path[path.length - 1]
+    const lastSegEnd = path[path.length - 1] // p3
     drawArrow(lastSegStart, lastSegEnd, scale, selected, 'orthogonal')
   }
 
@@ -121,10 +118,10 @@ export function drawEdge(edge: FlowEdge) {
     } else {
       const path = getOrthogonalPath(p0, edge.sourceAnchor, p3, edge.targetAnchor)
       // 标签放在中间段的中点
-      const seg = path.length >= 3 ? 1 : 0
+      const midIdx = Math.floor((path.length - 1) / 2)
       mid = {
-        x: (path[seg].x + path[seg + 1].x) / 2,
-        y: (path[seg].y + path[seg + 1].y) / 2,
+        x: (path[midIdx].x + path[midIdx + 1].x) / 2,
+        y: (path[midIdx].y + path[midIdx + 1].y) / 2,
       }
     }
     ctx.fillStyle = THEME.nodeText
@@ -150,6 +147,7 @@ export function drawTempEdge() {
   const { sourcePos, currentPos, sourceAnchor, previewTargetId, previewTargetAnchor } = tempConnection
 
   const lineType: LineType = (tempConnection as any).lineType || 'bezier'
+  const reconnectEnd = tempConnection.reconnectEnd
 
   let endPoint = currentPos
   let targetDir: AnchorDir
@@ -184,20 +182,30 @@ export function drawTempEdge() {
     ctx.stroke()
     ctx.setLineDash([])
     if (isSnapped) {
-      drawArrow(p2, endPoint, scale, true, 'bezier')
+      if (reconnectEnd === 'source') {
+        // 拖拽源端：箭头在 sourcePos（固定端=目标），方向从 endPoint → sourcePos
+        drawArrow(endPoint, sourcePos, scale, true, 'orthogonal')
+      } else {
+        drawArrow(p2, endPoint, scale, true, 'bezier')
+      }
     }
   } else {
     const path = getOrthogonalPath(sourcePos, sourceAnchor, endPoint, targetDir)
     ctx.moveTo(path[0].x, path[0].y)
     for (let i = 1; i < path.length; i++) {
-      if (path[i].x === path[i - 1].x && path[i].y === path[i - 1].y) continue
       ctx.lineTo(path[i].x, path[i].y)
     }
     ctx.stroke()
     ctx.setLineDash([])
     if (isSnapped) {
-      const lastSegStart = path[path.length - 2]
-      drawArrow(lastSegStart, endPoint, scale, true, 'orthogonal')
+      if (reconnectEnd === 'source') {
+        // 拖拽源端：箭头在 path[0]（sourcePos=固定目标），方向从 path[1] → path[0]
+        drawArrow(path[1], path[0], scale, true, 'orthogonal')
+      } else {
+        const lastSegStart = path[path.length - 2]
+        const lastSegEnd = path[path.length - 1]
+        drawArrow(lastSegStart, lastSegEnd, scale, true, 'orthogonal')
+      }
     }
   }
 
@@ -273,10 +281,9 @@ export function hitTestEdge(point: Point): FlowEdge | null {
       const d = distToBezier(point, p0, p1, p2, p3)
       if (d < EDGE_HIT_THRESHOLD) return edge
     } else {
-      // orthogonal：逐段检测
+      // orthogonal：逐段检测（path 包含 p0 和 p3，覆盖完整连线）
       const path = getOrthogonalPath(p0, edge.sourceAnchor, p3, edge.targetAnchor)
       for (let i = 0; i < path.length - 1; i++) {
-        if (path[i].x === path[i + 1].x && path[i].y === path[i + 1].y) continue
         const d = distToSegment(point, path[i], path[i + 1])
         if (d < EDGE_HIT_THRESHOLD) return edge
       }
@@ -288,4 +295,49 @@ export function hitTestEdge(point: Point): FlowEdge | null {
 /** 获取所有连线 */
 export function getAllEdges(): FlowEdge[] {
   return Array.from(edges.values())
+}
+
+/**
+ * 命中检测：检测点击是否命中选中连线的端点手柄
+ * 返回 'source' | 'target' | null
+ */
+export function hitTestEdgeEndpoint(point: Point, edge: FlowEdge): 'source' | 'target' | null {
+  const source = nodes.get(edge.sourceId)
+  const target = nodes.get(edge.targetId)
+  if (!source || !target) return null
+
+  const hitRadius = ANCHOR_HIT_RADIUS / viewport.scale
+  const sourcePos = getAnchorPosition(source, edge.sourceAnchor)
+  const targetPos = getAnchorPosition(target, edge.targetAnchor)
+
+  if (Math.hypot(point.x - sourcePos.x, point.y - sourcePos.y) <= hitRadius) return 'source'
+  if (Math.hypot(point.x - targetPos.x, point.y - targetPos.y) <= hitRadius) return 'target'
+  return null
+}
+
+/**
+ * 绘制选中连线的端点手柄（idle 状态下显示）
+ */
+export function drawEdgeEndpoints(edge: FlowEdge) {
+  const source = nodes.get(edge.sourceId)
+  const target = nodes.get(edge.targetId)
+  if (!source || !target) return
+
+  const scale = viewport.scale
+  const radius = ANCHOR_RADIUS / scale
+  const sourcePos = getAnchorPosition(source, edge.sourceAnchor)
+  const targetPos = getAnchorPosition(target, edge.targetAnchor)
+
+  ctx.save()
+  for (const [end, pos] of [['source', sourcePos], ['target', targetPos]] as const) {
+    const isHovered = hoveredEdgeEnd?.edgeId === edge.id && hoveredEdgeEnd?.end === end
+    ctx.fillStyle = isHovered ? THEME.anchorHover : THEME.anchor
+    ctx.strokeStyle = THEME.nodeFill
+    ctx.lineWidth = 2 / scale
+    ctx.beginPath()
+    ctx.arc(pos.x, pos.y, isHovered ? radius * 1.3 : radius, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+  }
+  ctx.restore()
 }

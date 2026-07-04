@@ -15,9 +15,10 @@ import {
   boxSelectStart, snapToGrid,
   hoveredAnchorNodeId, applySnap, toggleSnapToGrid,
   defaultLineType,
+  reconnectEdgeId, reconnectEnd, setReconnect, hoveredEdgeEnd, setHoveredEdgeEnd,
 } from './state'
 import { hitTestNode, getAllNodes } from './nodes'
-import { hitTestEdge } from './edges'
+import { hitTestEdge, hitTestEdgeEndpoint } from './edges'
 import { hitTestAnchor, getAnchorPosition } from './anchors'
 import { execute, undo, redo } from './history'
 import { startEdit, isEditing } from './texteditor'
@@ -88,6 +89,17 @@ function onMouseDown(e: MouseEvent) {
     }
   }
 
+  // 检查是否点击了选中连线的端点手柄（重连）
+  for (const id of selectedIds) {
+    const edge = edges.get(id)
+    if (!edge) continue
+    const end = hitTestEdgeEndpoint(canvasPt, edge)
+    if (end) {
+      startReconnect(edge, end, canvasPt)
+      return
+    }
+  }
+
   // 检查是否点击了节点
   const hitNode = hitTestNode(canvasPt)
   if (hitNode) {
@@ -145,11 +157,32 @@ function onMouseMove(e: MouseEvent) {
       if (!hovered && hoveredAnchorNodeId !== null) {
         setHoveredAnchor(null, null)
       }
+
+      // 检查选中连线的端点hover
+      let edgeHovered = false
+      for (const id of selectedIds) {
+        const edge = edges.get(id)
+        if (!edge) continue
+        const end = hitTestEdgeEndpoint(canvasPt, edge)
+        if (end) {
+          setHoveredEdgeEnd(edge.id, end)
+          edgeHovered = true
+          break
+        }
+      }
+      if (!edgeHovered && hoveredEdgeEnd !== null) {
+        setHoveredEdgeEnd(null, null)
+      }
+
       // 鼠标样式
-      if (spacePressed) {
+      if (edgeHovered) {
+        canvas.style.cursor = 'crosshair'
+      } else if (spacePressed) {
         canvas.classList.add('panning')
+        canvas.style.cursor = ''
       } else {
         canvas.classList.remove('panning')
+        canvas.style.cursor = ''
       }
       break
     }
@@ -200,6 +233,49 @@ function onMouseMove(e: MouseEvent) {
             tempConnection.previewTargetAnchor = bestDir
           } else {
             // 未悬浮在任何目标上 → 清除预览
+            if (hoveredAnchorNodeId) {
+              setHoveredAnchor(null, null)
+            }
+            tempConnection.previewTargetId = undefined
+            tempConnection.previewTargetAnchor = undefined
+          }
+        }
+        forceRender(render)
+      }
+      break
+    }
+
+    case 'reconnecting': {
+      if (tempConnection) {
+        tempConnection.currentPos = canvasPt
+
+        // 排除固定端所在的节点（不能连到自己）
+        const excludeId = tempConnection.sourceId
+
+        let foundAnchorNodeId: string | null = null
+        let foundAnchorDir: AnchorDir | null = null
+        for (const node of nodes.values()) {
+          if (node.id === excludeId) continue
+          const dir = hitTestAnchor(canvasPt, node)
+          if (dir) {
+            foundAnchorNodeId = node.id
+            foundAnchorDir = dir
+            break
+          }
+        }
+
+        if (foundAnchorNodeId && foundAnchorDir) {
+          setHoveredAnchor(foundAnchorNodeId, foundAnchorDir)
+          tempConnection.previewTargetId = foundAnchorNodeId
+          tempConnection.previewTargetAnchor = foundAnchorDir
+        } else {
+          const hitNode = hitTestNode(canvasPt)
+          if (hitNode && hitNode.id !== excludeId) {
+            const bestDir = findBestAnchor(hitNode, tempConnection.sourcePos)
+            setHoveredAnchor(hitNode.id, bestDir)
+            tempConnection.previewTargetId = hitNode.id
+            tempConnection.previewTargetAnchor = bestDir
+          } else {
             if (hoveredAnchorNodeId) {
               setHoveredAnchor(null, null)
             }
@@ -288,6 +364,49 @@ function onMouseUp(e: MouseEvent) {
         canvas.classList.remove('connecting')
       }
       setInteractionState('idle')
+      break
+    }
+
+    case 'reconnecting': {
+      if (tempConnection && reconnectEdgeId) {
+        const edge = edges.get(reconnectEdgeId)
+        if (edge && tempConnection.previewTargetId && tempConnection.previewTargetAnchor) {
+          const newNodeId = tempConnection.previewTargetId
+          const newAnchor = tempConnection.previewTargetAnchor
+
+          if (reconnectEnd === 'source') {
+            // 拖拽源端：更新 sourceId / sourceAnchor
+            // 不能连到自己的目标端
+            if (newNodeId !== edge.targetId) {
+              const oldSourceId = edge.sourceId
+              const oldSourceAnchor = edge.sourceAnchor
+              execute({
+                type: 'reconnect-edge-source',
+                do: () => { edge.sourceId = newNodeId; edge.sourceAnchor = newAnchor; markDirty() },
+                undo: () => { edge.sourceId = oldSourceId; edge.sourceAnchor = oldSourceAnchor; markDirty() },
+              })
+            }
+          } else if (reconnectEnd === 'target') {
+            // 拖拽目标端：更新 targetId / targetAnchor
+            if (newNodeId !== edge.sourceId) {
+              const oldTargetId = edge.targetId
+              const oldTargetAnchor = edge.targetAnchor
+              execute({
+                type: 'reconnect-edge-target',
+                do: () => { edge.targetId = newNodeId; edge.targetAnchor = newAnchor; markDirty() },
+                undo: () => { edge.targetId = oldTargetId; edge.targetAnchor = oldTargetAnchor; markDirty() },
+              })
+            }
+          }
+        }
+
+        setTempConnection(null)
+        setHoveredAnchor(null, null)
+        setReconnect(null, null)
+        canvas.classList.remove('connecting')
+      }
+      setInteractionState('idle')
+      forceRender(render)
       break
     }
 
@@ -480,6 +599,43 @@ function findBestAnchor(targetNode: FlowNode, sourcePos: Point): AnchorDir {
     }
   }
   return bestDir
+}
+
+/** 开始重连连线端点 */
+function startReconnect(edge: FlowEdge, end: 'source' | 'target', canvasPt: Point) {
+  setInteractionState('reconnecting')
+  setReconnect(edge.id, end)
+
+  const lineType = edge.lineType || 'bezier'
+
+  if (end === 'target') {
+    // 拖拽目标端：固定源端，预览从源→鼠标
+    const sourceNode = nodes.get(edge.sourceId)
+    if (!sourceNode) return
+    const sourcePos = getAnchorPosition(sourceNode, edge.sourceAnchor)
+    setTempConnection({
+      sourceId: edge.sourceId,
+      sourceAnchor: edge.sourceAnchor,
+      sourcePos,
+      currentPos: canvasPt,
+      lineType,
+      reconnectEnd: 'target',
+    })
+  } else {
+    // 拖拽源端：固定目标端，预览从目标→鼠标（箭头在目标端）
+    const targetNode = nodes.get(edge.targetId)
+    if (!targetNode) return
+    const targetPos = getAnchorPosition(targetNode, edge.targetAnchor)
+    setTempConnection({
+      sourceId: edge.targetId,       // 固定端作为 tempConnection 的 source
+      sourceAnchor: edge.targetAnchor,
+      sourcePos: targetPos,
+      currentPos: canvasPt,
+      lineType,
+      reconnectEnd: 'source',
+    })
+  }
+  canvas.classList.add('connecting')
 }
 
 /** 更新缩放显示 */

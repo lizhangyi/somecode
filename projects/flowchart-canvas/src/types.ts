@@ -44,6 +44,7 @@ export type InteractionState =
   | 'idle'
   | 'dragging-node'
   | 'connecting'
+  | 'reconnecting'
   | 'panning'
   | 'editing-text'
   | 'box-selecting'
@@ -61,7 +62,7 @@ export interface Command {
   undo: () => void
 }
 
-/** 临时连线状态（connecting时） */
+/** 临时连线状态（connecting / reconnecting 时） */
 export interface TempConnection {
   sourceId: string
   sourceAnchor: AnchorDir
@@ -70,6 +71,7 @@ export interface TempConnection {
   previewTargetId?: string       // 悬浮目标节点ID
   previewTargetAnchor?: AnchorDir // 预览的最佳目标锚点方向
   lineType?: LineType            // 当前预览的连线类型
+  reconnectEnd?: 'source' | 'target' // 重连时标记拖拽的是哪一端
 }
 
 /** 序列化数据格式 */

@@ -1,7 +1,7 @@
 // state.ts — 全局状态管理
 
 import type { FlowNode, FlowEdge, Viewport, InteractionState, Point, TempConnection, NodeShape, AnchorDir, LineType } from './types'
-import { DEFAULT_NODE_SIZE, NODE_ID_PREFIX, EDGE_ID_PREFIX, MIN_SCALE, MAX_SCALE, GRID_SIZE } from './config'
+import { DEFAULT_NODE_SIZE, NODE_ID_PREFIX, EDGE_ID_PREFIX, MIN_SCALE, MAX_SCALE, GRID_SIZE, applyTheme } from './config'
 import { uid, clamp, snapToGridValue } from './utils/geometry'
 
 // --- localStorage 持久化 ---
@@ -14,6 +14,7 @@ export interface StoredState {
   viewport: Viewport
   snapToGrid: boolean
   defaultLineType?: LineType
+  colorMode?: 'dark' | 'light'
 }
 
 /** 保存当前状态到 localStorage */
@@ -26,6 +27,7 @@ export function saveState() {
       viewport: { ...viewport },
       snapToGrid,
       defaultLineType,
+      colorMode,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   } catch (e) {
@@ -65,6 +67,9 @@ export function loadState(): boolean {
     if (data.defaultLineType === 'bezier' || data.defaultLineType === 'orthogonal') {
       defaultLineType = data.defaultLineType
     }
+    if (data.colorMode === 'dark' || data.colorMode === 'light') {
+      setColorMode(data.colorMode)
+    }
 
     return true
   } catch (e) {
@@ -89,6 +94,11 @@ export let interactionState: InteractionState = 'idle'
 export let tempConnection: TempConnection | null = null
 export let hoveredAnchorNodeId: string | null = null
 export let hoveredAnchorDir: AnchorDir | null = null
+
+// --- 重连状态 ---
+export let reconnectEdgeId: string | null = null
+export let reconnectEnd: 'source' | 'target' | null = null
+export let hoveredEdgeEnd: { edgeId: string; end: 'source' | 'target' } | null = null
 
 // --- 剪贴板 ---
 export let clipboardNodes: FlowNode[] = []
@@ -133,6 +143,24 @@ export function toggleDefaultLineType() {
 export function setDefaultLineType(type: LineType) {
   defaultLineType = type
   markDirty()
+}
+
+// --- 颜色模式 ---
+export type ColorMode = 'dark' | 'light'
+export let colorMode: ColorMode = 'dark'
+
+/** 设置颜色模式 */
+export function setColorMode(mode: ColorMode) {
+  colorMode = mode
+  applyTheme(mode)
+  // 同步 HTML data-theme 属性
+  document.documentElement.setAttribute('data-theme', mode)
+  markDirty()
+}
+
+/** 切换颜色模式 */
+export function toggleColorMode() {
+  setColorMode(colorMode === 'dark' ? 'light' : 'dark')
 }
 
 /** 对齐到网格（如果 snapToGrid 开启） */
@@ -180,6 +208,17 @@ export function setTempConnection(tc: TempConnection | null) {
 export function setHoveredAnchor(nodeId: string | null, dir: AnchorDir | null) {
   hoveredAnchorNodeId = nodeId
   hoveredAnchorDir = dir
+  markDirty()
+}
+
+export function setReconnect(edgeId: string | null, end: 'source' | 'target' | null) {
+  reconnectEdgeId = edgeId
+  reconnectEnd = end
+  markDirty()
+}
+
+export function setHoveredEdgeEnd(edgeId: string | null, end: 'source' | 'target' | null) {
+  hoveredEdgeEnd = (edgeId && end) ? { edgeId, end } : null
   markDirty()
 }
 
