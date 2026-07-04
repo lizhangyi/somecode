@@ -1,10 +1,10 @@
 // serializer.ts — JSON 序列化/反序列化
 
 import type { FlowchartData } from './types'
-import { nodes, edges, viewport, resetViewport, selectNone } from './state'
+import { nodes, edges, viewport, resetViewport, selectNone, defaultLineType, setDefaultLineType } from './state'
 import { clearHistory } from './history'
 
-const VERSION = '1.0.0'
+const VERSION = '1.1.0'
 
 /**
  * 导出当前流程图为JSON字符串
@@ -14,6 +14,7 @@ export function exportJSON(): string {
     version: VERSION,
     nodes: Array.from(nodes.values()),
     edges: Array.from(edges.values()),
+    defaultLineType: defaultLineType,
   }
   return JSON.stringify(data, null, 2)
 }
@@ -41,6 +42,11 @@ export function importJSON(json: string): boolean {
     // 导入连线
     for (const edge of data.edges) {
       edges.set(edge.id, edge)
+    }
+
+    // 恢复默认连线类型
+    if (data.defaultLineType === 'bezier' || data.defaultLineType === 'orthogonal') {
+      setDefaultLineType(data.defaultLineType)
     }
 
     // 重置视口

@@ -6,6 +6,9 @@ export type NodeShape = 'rect' | 'round-rect' | 'diamond' | 'circle'
 /** 锚点方向 */
 export type AnchorDir = 'top' | 'right' | 'bottom' | 'left'
 
+/** 连线类型 */
+export type LineType = 'bezier' | 'orthogonal'
+
 /** 流程图节点 */
 export interface FlowNode {
   id: string
@@ -26,6 +29,7 @@ export interface FlowEdge {
   targetId: string
   targetAnchor: AnchorDir
   label?: string
+  lineType?: LineType  // 不存则默认 bezier（兼容旧数据）
 }
 
 /** 视口状态（缩放 + 平移） */
@@ -65,6 +69,7 @@ export interface TempConnection {
   currentPos: Point  // 画布坐标（鼠标当前位置）
   previewTargetId?: string       // 悬浮目标节点ID
   previewTargetAnchor?: AnchorDir // 预览的最佳目标锚点方向
+  lineType?: LineType            // 当前预览的连线类型
 }
 
 /** 序列化数据格式 */
@@ -72,4 +77,5 @@ export interface FlowchartData {
   version: string
   nodes: FlowNode[]
   edges: FlowEdge[]
+  defaultLineType?: LineType
 }

@@ -9,6 +9,7 @@ import {
   scheduleRender, forceRender, markDirty, viewport, nodes, edges, selectedIds, updateNode,
   addNode, addEdge, setScale, snapToGrid, toggleSnapToGrid,
   loadState, saveState, clearState, resetViewport,
+  defaultLineType, toggleDefaultLineType, setDefaultLineType,
 } from './state'
 import { execute, undo, redo, canUndo, canRedo } from './history'
 import { exportJSON, importJSON, downloadJSON } from './serializer'
@@ -245,6 +246,12 @@ toolbar.addEventListener('click', (e) => {
       updateToolbarState()
       forceRender(render)
       break
+    case 'toggle-line-type': {
+      toggleDefaultLineType()
+      updateLineTypeButton()
+      forceRender(render)
+      break
+    }
   }
 })
 
@@ -392,6 +399,16 @@ propDelete.addEventListener('click', () => {
   updatePropertyPanel()
 })
 
+// --- 连线类型按钮更新 ---
+function updateLineTypeButton() {
+  const btn = document.getElementById('toggle-line-type') as HTMLButtonElement | null
+  if (!btn) return
+  const isOrth = defaultLineType === 'orthogonal'
+  btn.textContent = isOrth ? '⟶' : '⟰'
+  btn.title = isOrth ? '连线类型：正交折线（点击切换为曲线）' : '连线类型：贝塞尔曲线（点击切换为正交）'
+  btn.classList.toggle('active', isOrth)
+}
+
 // --- 工具栏状态更新 ---
 function updateToolbarState() {
   const undoBtn = toolbar.querySelector('[data-action="undo"]') as HTMLButtonElement
@@ -405,6 +422,9 @@ function updateToolbarState() {
     snapBtn.classList.toggle('active', snapToGrid)
     snapBtn.title = snapToGrid ? '对齐网格：开' : '对齐网格：关'
   }
+
+  // 更新连线类型按钮
+  updateLineTypeButton()
 }
 
 // --- 属性面板开闭 ---

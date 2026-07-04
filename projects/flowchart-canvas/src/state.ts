@@ -1,6 +1,6 @@
 // state.ts — 全局状态管理
 
-import type { FlowNode, FlowEdge, Viewport, InteractionState, Point, TempConnection, NodeShape, AnchorDir } from './types'
+import type { FlowNode, FlowEdge, Viewport, InteractionState, Point, TempConnection, NodeShape, AnchorDir, LineType } from './types'
 import { DEFAULT_NODE_SIZE, NODE_ID_PREFIX, EDGE_ID_PREFIX, MIN_SCALE, MAX_SCALE, GRID_SIZE } from './config'
 import { uid, clamp, snapToGridValue } from './utils/geometry'
 
@@ -13,17 +13,19 @@ export interface StoredState {
   edges: FlowEdge[]
   viewport: Viewport
   snapToGrid: boolean
+  defaultLineType?: LineType
 }
 
 /** 保存当前状态到 localStorage */
 export function saveState() {
   try {
     const data: StoredState = {
-      version: '1.0.0',
+      version: '1.1.0',
       nodes: Array.from(nodes.values()),
       edges: Array.from(edges.values()),
       viewport: { ...viewport },
       snapToGrid,
+      defaultLineType,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   } catch (e) {
@@ -59,6 +61,9 @@ export function loadState(): boolean {
     // 恢复设置
     if (typeof data.snapToGrid === 'boolean') {
       snapToGrid = data.snapToGrid
+    }
+    if (data.defaultLineType === 'bezier' || data.defaultLineType === 'orthogonal') {
+      defaultLineType = data.defaultLineType
     }
 
     return true
@@ -114,6 +119,21 @@ export let boxSelectEnd: Point = { x: 0, y: 0 }
 
 // --- 对齐模式 ---
 export let snapToGrid = true
+
+// --- 默认连线类型 ---
+export let defaultLineType: LineType = 'bezier'
+
+/** 切换默认连线类型 */
+export function toggleDefaultLineType() {
+  defaultLineType = defaultLineType === 'bezier' ? 'orthogonal' : 'bezier'
+  markDirty()
+}
+
+/** 设置默认连线类型 */
+export function setDefaultLineType(type: LineType) {
+  defaultLineType = type
+  markDirty()
+}
 
 /** 对齐到网格（如果 snapToGrid 开启） */
 export function applySnap(value: number): number {

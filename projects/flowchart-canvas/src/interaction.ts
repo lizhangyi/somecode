@@ -14,6 +14,7 @@ import {
   panStartScreen, panStartOffset,
   boxSelectStart, snapToGrid,
   hoveredAnchorNodeId, applySnap, toggleSnapToGrid,
+  defaultLineType,
 } from './state'
 import { hitTestNode, getAllNodes } from './nodes'
 import { hitTestEdge } from './edges'
@@ -80,6 +81,7 @@ function onMouseDown(e: MouseEvent) {
         sourceAnchor: anchorDir,
         sourcePos,
         currentPos: canvasPt,
+        lineType: defaultLineType,
       })
       canvas.classList.add('connecting')
       return
@@ -262,6 +264,7 @@ function onMouseUp(e: MouseEvent) {
         if (tempConnection.previewTargetId && tempConnection.previewTargetAnchor) {
           const targetNode = nodes.get(tempConnection.previewTargetId)
           if (targetNode && targetNode.id !== tempConnection.sourceId) {
+            const lineType = tempConnection.lineType || defaultLineType
             const edge = addEdge(
               tempConnection.sourceId,
               tempConnection.sourceAnchor,
@@ -269,6 +272,8 @@ function onMouseUp(e: MouseEvent) {
               tempConnection.previewTargetAnchor
             )
             if (edge) {
+              // 写入连线类型
+              edge.lineType = lineType
               execute({
                 type: 'add-edge',
                 do: () => { edges.set(edge.id, edge); markDirty() },
