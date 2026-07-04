@@ -48,6 +48,10 @@ export type InteractionState =
   | 'panning'
   | 'editing-text'
   | 'box-selecting'
+  | 'resizing'
+
+/** Resize 手柄位置 */
+export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 
 /** 二维点 */
 export interface Point {

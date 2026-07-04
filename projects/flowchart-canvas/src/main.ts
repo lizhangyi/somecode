@@ -10,7 +10,9 @@ import {
   addNode, addEdge, setScale, snapToGrid, toggleSnapToGrid,
   loadState, saveState, clearState, resetViewport,
   defaultLineType, toggleDefaultLineType, setDefaultLineType,
-  colorMode, toggleColorMode, setColorMode,
+  colorMode, setColorMode, getResolvedTheme,
+  getCanvasList, getActiveCanvasId, getActiveCanvasName,
+  createCanvas, switchCanvas, renameCanvas, deleteCanvas,
 } from './state'
 import { execute, undo, redo, canUndo, canRedo } from './history'
 import { exportJSON, importJSON, downloadJSON } from './serializer'
@@ -44,6 +46,7 @@ function createDemoNodes() {
 const restored = loadState()
 if (!restored) {
   createDemoNodes()
+  saveState() // 首次使用，保存为第一个画布
 }
 
 // --- 自动保存 ---
@@ -186,6 +189,21 @@ document.addEventListener('click', (e) => {
       moreMenuEl.classList.remove('open')
     }
   }
+
+  // 主题下拉：打开时，点击外部关闭
+  if (themeDropdownOpen && !themeWidget.contains(target)) {
+    closeThemeDropdown()
+  }
+
+  // 形状下拉：打开时，点击外部关闭
+  if (shapeDropdownOpen && !shapeWidget.contains(target)) {
+    closeShapeDropdown()
+  }
+
+  // 画布切换器：打开时，点击外部关闭
+  if (canvasDropdownOpen && !canvasSwitcher.contains(target)) {
+    closeCanvasDropdown()
+  }
 })
 
 // --- 工具栏事件 ---
@@ -194,13 +212,17 @@ toolbar.addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('.tool-btn') as HTMLElement | null
   if (!btn) return
   if (btn.id === 'tool-more-btn') return
+  // 形状下拉按钮单独处理
+  if (btn.id === 'shape-btn') return
   const action = btn.dataset.action
   if (!action) return
 
   switch (action) {
     case 'add-node': {
       const shape = btn.dataset.shape as NodeShape
-      if (shape) addNodeAtCenter(shape)
+      if (shape) {
+        addNodeAtCenter(shape)
+      }
       break
     }
     case 'undo':
@@ -253,12 +275,6 @@ toolbar.addEventListener('click', (e) => {
       forceRender(render)
       break
     }
-    case 'toggle-theme': {
-      toggleColorMode()
-      updateThemeButton()
-      forceRender(render)
-      break
-    }
   }
 })
 
@@ -284,7 +300,7 @@ fileInput.addEventListener('change', (e) => {
 const propEmpty = document.querySelector('.property-empty') as HTMLElement
 const propContent = document.querySelector('.property-content') as HTMLElement
 const propShape = document.getElementById('prop-shape') as HTMLElement
-const propText = document.getElementById('prop-text') as HTMLInputElement
+const propText = document.getElementById('prop-text') as HTMLTextAreaElement
 const propWidth = document.getElementById('prop-width') as HTMLInputElement
 const propHeight = document.getElementById('prop-height') as HTMLInputElement
 const propColor = document.getElementById('prop-color') as HTMLInputElement
@@ -416,14 +432,7 @@ function updateLineTypeButton() {
   btn.classList.toggle('active', isOrth)
 }
 
-// --- 主题切换按钮更新 ---
-function updateThemeButton() {
-  const btn = document.getElementById('toggle-theme') as HTMLButtonElement | null
-  if (!btn) return
-  const isDark = colorMode === 'dark'
-  btn.textContent = isDark ? '🌙' : '☀️'
-  btn.title = isDark ? '当前：深色模式（点击切换为浅色）' : '当前：浅色模式（点击切换为深色）'
-}
+// --- 主题切换按钮更新（已由 updateThemeDisplay 替代）---
 
 // --- 工具栏状态更新 ---
 function updateToolbarState() {
@@ -487,25 +496,239 @@ moreMenu.addEventListener('click', (e) => {
     downloadJSON()
   } else if (action === 'import') {
     document.getElementById('file-input')?.click()
-  } else if (action === 'new-canvas') {
-    if (!confirm('确定要新建画布吗？当前内容将丢失。')) return
-    // 清除所有状态
-    nodes.clear()
-    edges.clear()
-    selectedIds.clear()
-    clearState()
-    resetViewport()
-    // 创建示例节点
-    createDemoNodes()
-    saveState()
+  }
+  moreMenu.classList.remove('open')
+})
+
+// --- 画布切换器组件 ---
+const canvasSwitcher = document.getElementById('canvas-switcher') as HTMLElement
+const canvasNameBtn = document.getElementById('canvas-name-btn') as HTMLButtonElement
+const canvasNameDisplay = document.getElementById('canvas-name-display') as HTMLElement
+const canvasListDropdown = document.getElementById('canvas-list-dropdown') as HTMLElement
+
+let canvasDropdownOpen = false
+
+/** 更新画布名称显示 */
+function updateCanvasNameDisplay() {
+  canvasNameDisplay.textContent = getActiveCanvasName()
+}
+
+/** 格式化时间 */
+function formatTime(ts: number): string {
+  const d = new Date(ts)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  }
+  return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+}
+
+/** 渲染画布列表下拉 */
+function renderCanvasList() {
+  const list = getCanvasList()
+  const activeId = getActiveCanvasId()
+  let html = ''
+
+  for (const c of list) {
+    const isActive = c.id === activeId
+    html += `<div class="canvas-list-item ${isActive ? 'active' : ''}" data-canvas-id="${c.id}">
+      <span class="canvas-list-name">${escapeHtml(c.name)}</span>
+      <span class="canvas-list-time">${formatTime(c.updatedAt)}</span>
+      <span class="canvas-list-delete" data-delete-id="${c.id}" title="删除画布">✕</span>
+    </div>`
+  }
+
+  html += `<div class="canvas-list-divider"></div>`
+  html += `<div class="canvas-list-action" data-action="new-canvas">＋ 新建画布</div>`
+  html += `<div class="canvas-list-action" data-action="rename-canvas">✏️ 重命名画布</div>`
+
+  canvasListDropdown.innerHTML = html
+}
+
+/** HTML 转义 */
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function closeCanvasDropdown() {
+  canvasDropdownOpen = false
+  canvasListDropdown.classList.remove('open')
+}
+
+/** 刷新画布切换器状态（名称 + 列表） */
+function refreshCanvasSwitcher() {
+  updateCanvasNameDisplay()
+  if (canvasDropdownOpen) renderCanvasList()
+}
+
+canvasNameBtn.addEventListener('click', (e) => {
+  e.stopPropagation()
+  canvasDropdownOpen = !canvasDropdownOpen
+  if (canvasDropdownOpen) {
+    renderCanvasList()
+    canvasListDropdown.classList.add('open')
+  } else {
+    canvasListDropdown.classList.remove('open')
+  }
+})
+
+canvasListDropdown.addEventListener('click', (e) => {
+  e.stopPropagation()
+  const target = e.target as HTMLElement
+
+  // 删除画布
+  const deleteEl = target.closest('.canvas-list-delete') as HTMLElement | null
+  if (deleteEl) {
+    const id = deleteEl.dataset.deleteId!
+    const list = getCanvasList()
+    if (list.length <= 1) {
+      alert('至少保留一个画布')
+      return
+    }
+    const canvas = list.find(c => c.id === id)
+    if (!confirm(`确定要删除画布「${canvas?.name}」吗？`)) return
+    deleteCanvas(id)
+    refreshCanvasSwitcher()
     updateZoomDisplay()
     updateFitButton()
-    updateToolbarState()
-    updateThemeButton()
+    updatePropertyPanel()
+    forceRender(render)
+    return
+  }
+
+  // 新建画布
+  const actionEl = target.closest('.canvas-list-action') as HTMLElement | null
+  if (actionEl) {
+    const action = actionEl.dataset.action
+    if (action === 'new-canvas') {
+      const name = prompt('请输入画布名称：', '未命名画布')
+      if (name === null) return
+      createCanvas(name.trim())
+      closeCanvasDropdown()
+      refreshCanvasSwitcher()
+      updateZoomDisplay()
+      updateFitButton()
+      updatePropertyPanel()
+      forceRender(render)
+    } else if (action === 'rename-canvas') {
+      const currentName = getActiveCanvasName()
+      const name = prompt('请输入新的画布名称：', currentName)
+      if (name === null) return
+      renameCanvas(name.trim())
+      refreshCanvasSwitcher()
+      forceRender(render)
+    }
+    return
+  }
+
+  // 切换画布
+  const itemEl = target.closest('.canvas-list-item') as HTMLElement | null
+  if (itemEl) {
+    const id = itemEl.dataset.canvasId!
+    if (id === getActiveCanvasId()) {
+      closeCanvasDropdown()
+      return
+    }
+    switchCanvas(id)
+    closeCanvasDropdown()
+    updateCanvasNameDisplay()
+    updateZoomDisplay()
+    updateFitButton()
     updatePropertyPanel()
     forceRender(render)
   }
-  moreMenu.classList.remove('open')
+})
+
+// --- 形状下拉组件 ---
+const shapeWidget = document.getElementById('shape-widget') as HTMLElement
+const shapeBtn = document.getElementById('shape-btn') as HTMLButtonElement
+const shapeDropdown = document.getElementById('shape-dropdown') as HTMLElement
+
+let shapeDropdownOpen = false
+
+function closeShapeDropdown() {
+  shapeDropdownOpen = false
+  shapeDropdown.classList.remove('open')
+}
+
+shapeBtn.addEventListener('click', (e) => {
+  e.stopPropagation()
+  shapeDropdownOpen = !shapeDropdownOpen
+  shapeDropdown.classList.toggle('open', shapeDropdownOpen)
+})
+
+shapeDropdown.addEventListener('click', (e) => {
+  e.stopPropagation()
+  const option = (e.target as HTMLElement).closest('.shape-option') as HTMLElement | null
+  if (!option) return
+  const shape = option.dataset.shape as NodeShape
+  if (!shape) return
+  addNodeAtCenter(shape)
+  closeShapeDropdown()
+  forceRender(render)
+})
+
+// --- 主题下拉组件 ---
+const themeWidget = document.getElementById('theme-widget') as HTMLElement
+const themeBtn = document.getElementById('theme-btn') as HTMLButtonElement
+const themeDropdown = document.getElementById('theme-dropdown') as HTMLElement
+
+let themeDropdownOpen = false
+
+/** 更新主题按钮显示（图标 + 标题 + 下拉选中态） */
+function updateThemeDisplay() {
+  const resolved = getResolvedTheme(colorMode)
+  const isDark = resolved === 'dark'
+  // 按钮图标显示实际生效的主题
+  themeBtn.textContent = isDark ? '🌙' : '☀️'
+  const modeLabels: Record<string, string> = {
+    auto: '跟随系统',
+    dark: '深色模式',
+    light: '浅色模式',
+  }
+  themeBtn.title = `主题：${modeLabels[colorMode]}（当前生效：${isDark ? '深色' : '浅色'}）`
+
+  // 高亮当前选中项
+  themeDropdown.querySelectorAll('.theme-option').forEach(opt => {
+    const el = opt as HTMLElement
+    el.classList.toggle('selected', el.dataset.themeMode === colorMode)
+  })
+}
+
+/** 关闭主题下拉 */
+function closeThemeDropdown() {
+  themeDropdownOpen = false
+  themeDropdown.classList.remove('open')
+}
+
+// 点击按钮 → 切换下拉
+themeBtn.addEventListener('click', (e) => {
+  e.stopPropagation()
+  themeDropdownOpen = !themeDropdownOpen
+  themeDropdown.classList.toggle('open', themeDropdownOpen)
+})
+
+// 点击选项 → 切换模式
+themeDropdown.addEventListener('click', (e) => {
+  e.stopPropagation()
+  const option = (e.target as HTMLElement).closest('.theme-option') as HTMLElement | null
+  if (!option) return
+  const mode = option.dataset.themeMode as 'auto' | 'dark' | 'light'
+  if (!mode) return
+  setColorMode(mode)
+  closeThemeDropdown()
+  updateThemeDisplay()
+  forceRender(render)
+})
+
+// --- 系统主题变化监听（auto 模式下自动跟随） ---
+const systemThemeMql = window.matchMedia('(prefers-color-scheme: dark)')
+systemThemeMql.addEventListener('change', () => {
+  if (colorMode === 'auto') {
+    setColorMode('auto') // 重新解析并应用
+    updateThemeDisplay()
+    forceRender(render)
+  }
 })
 
 // --- 监听选中变化更新属性面板 ---
@@ -523,9 +746,10 @@ requestAnimationFrame(checkSelectionChange)
 
 // --- 初始化 ---
 // 确保 HTML data-theme 属性与 colorMode 同步（loadState 可能已设置）
-document.documentElement.setAttribute('data-theme', colorMode)
+document.documentElement.setAttribute('data-theme', getResolvedTheme(colorMode))
 updateToolbarState()
-updateThemeButton()
+updateThemeDisplay()
+updateCanvasNameDisplay()
 updateFitButton()
 updateZoomDisplay()
 forceRender(render)

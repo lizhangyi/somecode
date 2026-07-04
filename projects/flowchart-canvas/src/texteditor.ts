@@ -1,4 +1,4 @@
-// texteditor.ts — 双击节点编辑文字（浮层input）
+// texteditor.ts — 双击节点编辑文字（浮层textarea）
 
 import type { FlowNode } from './types'
 import { viewport } from './state'
@@ -6,7 +6,7 @@ import { execute } from './history'
 import { updateNode } from './state'
 import { canvasToScreen } from './canvas'
 
-let editorEl: HTMLInputElement | null = null
+let editorEl: HTMLTextAreaElement | null = null
 let editingNode: FlowNode | null = null
 let originalText: string = ''
 
@@ -14,11 +14,11 @@ let originalText: string = ''
  * 初始化文字编辑器
  */
 export function initTextEditor() {
-  editorEl = document.getElementById('text-editor') as HTMLInputElement
+  editorEl = document.getElementById('text-editor') as HTMLTextAreaElement
   if (!editorEl) return
 
   editorEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
       finishEdit()
     } else if (e.key === 'Escape') {

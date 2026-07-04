@@ -4,7 +4,7 @@ import { ctx, applyTransform, applyViewportTransform, getCanvasSize } from './ca
 import { nodes, edges, selectedIds, interactionState, tempConnection, boxSelectStart, boxSelectEnd, hoveredAnchorNodeId, hoveredAnchorDir } from './state'
 import { THEME } from './config'
 import { drawGrid } from './grid'
-import { drawNode } from './nodes'
+import { drawNode, drawResizeHandles } from './nodes'
 import { drawEdge, drawTempEdge, drawEdgeEndpoints } from './edges'
 import { drawAnchors, drawTargetAnchors } from './anchors'
 
@@ -54,11 +54,13 @@ export function render() {
     }
   }
 
-  // 7.6 选中连线的端点手柄（idle 状态下显示）
+  // 7.6 选中连线的端点手柄 + 选中节点的 resize 手柄（idle 状态下显示）
   if (interactionState === 'idle') {
     for (const id of selectedIds) {
       const edge = edges.get(id)
       if (edge) drawEdgeEndpoints(edge)
+      const node = nodes.get(id)
+      if (node) drawResizeHandles(node)
     }
   }
 

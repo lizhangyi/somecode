@@ -78,6 +78,11 @@ export const EDGE_HIT_THRESHOLD = 8
 export const MIN_NODE_WIDTH = 40
 export const MIN_NODE_HEIGHT = 30
 
+/** Resize 手柄大小（屏幕像素） */
+export const RESIZE_HANDLE_SIZE = 8
+/** Resize 手柄命中大小（屏幕像素） */
+export const RESIZE_HANDLE_HIT_SIZE = 14
+
 /** 缩放范围 */
 export const MIN_SCALE = 0.2
 export const MAX_SCALE = 3.0

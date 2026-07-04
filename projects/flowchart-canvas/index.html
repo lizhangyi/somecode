@@ -18,23 +18,36 @@
   <div id="app">
     <!-- Toolbar -->
     <div id="toolbar" class="toolbar">
-      <!-- 左侧：更多操作 -->
+      <!-- 左侧：更多操作 + 画布切换器 -->
       <div class="toolbar-left">
         <button class="tool-btn tool-more-btn" id="tool-more-btn" title="更多操作">☰</button>
         <div id="more-menu" class="more-menu">
           <div class="more-item" data-action="import">📂 导入 JSON</div>
           <div class="more-item" data-action="export">💾 导出 JSON</div>
-          <div class="more-item" data-action="new-canvas">🗑️ 新建画布</div>
+        </div>
+
+        <div id="canvas-switcher" class="canvas-switcher">
+          <button class="canvas-name-btn" id="canvas-name-btn" title="切换画布">
+            <span class="canvas-name-icon">📄</span>
+            <span id="canvas-name-display" class="canvas-name-text">未命名画布</span>
+            <span class="canvas-switcher-arrow">▾</span>
+          </button>
+          <div id="canvas-list-dropdown" class="canvas-list-dropdown"></div>
         </div>
       </div>
 
       <!-- 中间：主要功能按钮（绝对定位居中） -->
       <div class="toolbar-center">
         <div class="toolbar-group">
-          <button class="tool-btn" data-action="add-node" data-shape="rect" title="矩形节点">▭</button>
-          <button class="tool-btn" data-action="add-node" data-shape="round-rect" title="圆角矩形节点">▢</button>
-          <button class="tool-btn" data-action="add-node" data-shape="diamond" title="菱形节点">◇</button>
-          <button class="tool-btn" data-action="add-node" data-shape="circle" title="圆形节点">○</button>
+          <div id="shape-widget" class="shape-widget">
+            <button class="tool-btn" id="shape-btn" title="添加节点">▭</button>
+            <div id="shape-dropdown" class="shape-dropdown">
+              <div class="shape-option" data-shape="rect"><span class="shape-icon">▭</span> 矩形</div>
+              <div class="shape-option" data-shape="round-rect"><span class="shape-icon">▢</span> 圆角矩形</div>
+              <div class="shape-option" data-shape="diamond"><span class="shape-icon">◇</span> 菱形</div>
+              <div class="shape-option" data-shape="circle"><span class="shape-icon">○</span> 圆形</div>
+            </div>
+          </div>
         </div>
         <div class="toolbar-divider"></div>
         <div class="toolbar-group">
@@ -57,7 +70,14 @@
           <button id="fit-btn" class="tool-btn" data-action="fit" title="适配视图">⤢</button>
           <button class="tool-btn" data-action="toggle-snap" title="对齐网格">⊞</button>
           <button class="tool-btn" id="toggle-line-type" data-action="toggle-line-type" title="切换连线类型（曲线/正交）">⟰</button>
-          <button class="tool-btn" id="toggle-theme" data-action="toggle-theme" title="切换主题（深色/浅色）">🌙</button>
+          <div id="theme-widget" class="theme-widget">
+            <button class="tool-btn" id="theme-btn" title="主题模式">🌙</button>
+            <div id="theme-dropdown" class="theme-dropdown">
+              <div class="theme-option" data-theme-mode="auto">🖥️ 跟随系统</div>
+              <div class="theme-option" data-theme-mode="dark">🌙 深色模式</div>
+              <div class="theme-option" data-theme-mode="light">☀️ 浅色模式</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -67,7 +87,7 @@
       <!-- Canvas -->
       <div id="canvas-container" class="canvas-container">
         <canvas id="canvas"></canvas>
-        <input id="text-editor" class="text-editor" type="text" />
+        <textarea id="text-editor" class="text-editor" rows="3"></textarea>
         <input type="file" id="file-input" accept=".json" style="display:none" />
       </div>
 
@@ -82,9 +102,9 @@
             <label>类型</label>
             <span id="prop-shape"></span>
           </div>
-          <div class="property-row">
+          <div class="property-row property-row-text">
             <label>文字</label>
-            <input id="prop-text" type="text" />
+            <textarea id="prop-text" rows="3"></textarea>
           </div>
           <div class="property-row">
             <label>宽度</label>

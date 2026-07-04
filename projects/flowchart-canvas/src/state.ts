@@ -1,87 +1,254 @@
 // state.ts — 全局状态管理
 
-import type { FlowNode, FlowEdge, Viewport, InteractionState, Point, TempConnection, NodeShape, AnchorDir, LineType } from './types'
+import type { FlowNode, FlowEdge, Viewport, InteractionState, Point, TempConnection, NodeShape, AnchorDir, LineType, ResizeHandle } from './types'
 import { DEFAULT_NODE_SIZE, NODE_ID_PREFIX, EDGE_ID_PREFIX, MIN_SCALE, MAX_SCALE, GRID_SIZE, applyTheme } from './config'
 import { uid, clamp, snapToGridValue } from './utils/geometry'
 
-// --- localStorage 持久化 ---
-const STORAGE_KEY = 'flowchart-canvas-state'
+// --- 多画布 localStorage 持久化 ---
+const STORE_KEY = 'flowchart-canvas-store'
+const OLD_STORAGE_KEY = 'flowchart-canvas-state' // 旧版单画布 key，用于迁移
 
-export interface StoredState {
-  version: string
+export interface CanvasMeta {
+  id: string
+  name: string
+  createdAt: number
+  updatedAt: number
+}
+
+interface CanvasData extends CanvasMeta {
   nodes: FlowNode[]
   edges: FlowEdge[]
   viewport: Viewport
-  snapToGrid: boolean
-  defaultLineType?: LineType
-  colorMode?: 'dark' | 'light'
 }
 
-/** 保存当前状态到 localStorage */
-export function saveState() {
+interface StoreData {
+  canvases: CanvasData[]
+  activeId: string | null
+  settings: {
+    snapToGrid: boolean
+    defaultLineType: LineType
+    colorMode: ColorMode
+  }
+}
+
+function defaultStore(): StoreData {
+  return { canvases: [], activeId: null, settings: { snapToGrid: true, defaultLineType: 'bezier', colorMode: 'auto' } }
+}
+
+/** 读取 store（含旧格式自动迁移） */
+function loadStore(): StoreData {
   try {
-    const data: StoredState = {
-      version: '1.1.0',
+    const raw = localStorage.getItem(STORE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && Array.isArray(parsed.canvases)) return parsed
+    }
+
+    // 迁移旧版单画布格式
+    const oldRaw = localStorage.getItem(OLD_STORAGE_KEY)
+    if (oldRaw) {
+      const old = JSON.parse(oldRaw)
+      if (old && old.nodes) {
+        const id = uid('canvas-')
+        const now = Date.now()
+        const store: StoreData = {
+          canvases: [{
+            id, name: '未命名画布', createdAt: now, updatedAt: now,
+            nodes: old.nodes, edges: old.edges || [],
+            viewport: old.viewport || { scale: 1, offsetX: 0, offsetY: 0 },
+          }],
+          activeId: id,
+          settings: {
+            snapToGrid: old.snapToGrid ?? true,
+            defaultLineType: old.defaultLineType ?? 'bezier',
+            colorMode: old.colorMode ?? 'auto',
+          },
+        }
+        saveStore(store)
+        localStorage.removeItem(OLD_STORAGE_KEY)
+        return store
+      }
+    }
+    return defaultStore()
+  } catch {
+    return defaultStore()
+  }
+}
+
+function saveStore(store: StoreData) {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(store))
+  } catch (e) {
+    console.warn('保存画布存储失败:', e)
+  }
+}
+
+/** 获取画布列表（按更新时间降序） */
+export function getCanvasList(): CanvasMeta[] {
+  return loadStore().canvases
+    .map(c => ({ id: c.id, name: c.name, createdAt: c.createdAt, updatedAt: c.updatedAt }))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+/** 获取当前激活画布 ID */
+export function getActiveCanvasId(): string | null {
+  return loadStore().activeId
+}
+
+/** 获取当前激活画布名称 */
+export function getActiveCanvasName(): string {
+  const store = loadStore()
+  return store.canvases.find(c => c.id === store.activeId)?.name || '未命名画布'
+}
+
+/** 将内存中的节点/连线/视口写入 store 中当前激活的画布 */
+export function saveState() {
+  const store = loadStore()
+  if (!store.activeId) {
+    // 无激活画布，自动创建一个
+    const id = uid('canvas-')
+    const now = Date.now()
+    store.canvases.push({
+      id, name: '未命名画布', createdAt: now, updatedAt: now,
       nodes: Array.from(nodes.values()),
       edges: Array.from(edges.values()),
       viewport: { ...viewport },
-      snapToGrid,
-      defaultLineType,
-      colorMode,
+    })
+    store.activeId = id
+  } else {
+    const canvas = store.canvases.find(c => c.id === store.activeId)
+    if (canvas) {
+      canvas.nodes = Array.from(nodes.values())
+      canvas.edges = Array.from(edges.values())
+      canvas.viewport = { ...viewport }
+      canvas.updatedAt = Date.now()
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  } catch (e) {
-    // localStorage 满或不可用时静默失败
-    console.warn('保存画布状态失败:', e)
   }
+  // 同步全局设置
+  store.settings.snapToGrid = snapToGrid
+  store.settings.defaultLineType = defaultLineType
+  store.settings.colorMode = colorMode
+  saveStore(store)
 }
 
-/** 从 localStorage 恢复状态，返回是否恢复成功 */
+/** 从 store 恢复状态到内存（加载激活画布 + 全局设置） */
 export function loadState(): boolean {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return false
-    const data: StoredState = JSON.parse(raw)
-    if (!data.nodes || !Array.isArray(data.nodes)) return false
+  const store = loadStore()
 
-    // 清空当前状态
-    nodes.clear()
-    edges.clear()
-    selectedIds.clear()
+  // 恢复全局设置
+  snapToGrid = store.settings.snapToGrid ?? true
+  defaultLineType = store.settings.defaultLineType ?? 'bezier'
+  if (store.settings.colorMode) setColorMode(store.settings.colorMode)
 
-    // 恢复节点和连线
-    for (const node of data.nodes) nodes.set(node.id, node)
-    for (const edge of data.edges) edges.set(edge.id, edge)
+  if (!store.activeId) return false
+  const canvas = store.canvases.find(c => c.id === store.activeId)
+  if (!canvas || !canvas.nodes) return false
 
-    // 恢复视口
-    if (data.viewport) {
-      viewport.scale = clamp(data.viewport.scale ?? 1, MIN_SCALE, MAX_SCALE)
-      viewport.offsetX = data.viewport.offsetX ?? 0
-      viewport.offsetY = data.viewport.offsetY ?? 0
-    }
+  nodes.clear()
+  edges.clear()
+  selectedIds.clear()
+  for (const node of canvas.nodes) nodes.set(node.id, node)
+  for (const edge of canvas.edges) edges.set(edge.id, edge)
+  viewport.scale = clamp(canvas.viewport.scale ?? 1, MIN_SCALE, MAX_SCALE)
+  viewport.offsetX = canvas.viewport.offsetX ?? 0
+  viewport.offsetY = canvas.viewport.offsetY ?? 0
+  return true
+}
 
-    // 恢复设置
-    if (typeof data.snapToGrid === 'boolean') {
-      snapToGrid = data.snapToGrid
-    }
-    if (data.defaultLineType === 'bezier' || data.defaultLineType === 'orthogonal') {
-      defaultLineType = data.defaultLineType
-    }
-    if (data.colorMode === 'dark' || data.colorMode === 'light') {
-      setColorMode(data.colorMode)
-    }
+/** 新建画布：保存当前 → 创建空画布 → 切换为激活 */
+export function createCanvas(name: string): string {
+  saveState()
+  const store = loadStore()
+  const id = uid('canvas-')
+  const now = Date.now()
+  store.canvases.push({
+    id, name: name || '未命名画布', createdAt: now, updatedAt: now,
+    nodes: [], edges: [], viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+  })
+  store.activeId = id
+  saveStore(store)
 
-    return true
-  } catch (e) {
-    console.warn('恢复画布状态失败:', e)
-    return false
+  nodes.clear()
+  edges.clear()
+  selectedIds.clear()
+  resetViewport()
+  return id
+}
+
+/** 切换到指定画布：保存当前 → 加载目标画布到内存 */
+export function switchCanvas(id: string) {
+  saveState()
+  const store = loadStore()
+  const canvas = store.canvases.find(c => c.id === id)
+  if (!canvas) return
+  store.activeId = id
+  saveStore(store)
+
+  nodes.clear()
+  edges.clear()
+  selectedIds.clear()
+  for (const node of canvas.nodes) nodes.set(node.id, node)
+  for (const edge of canvas.edges) edges.set(edge.id, edge)
+  viewport.scale = clamp(canvas.viewport.scale ?? 1, MIN_SCALE, MAX_SCALE)
+  viewport.offsetX = canvas.viewport.offsetX ?? 0
+  viewport.offsetY = canvas.viewport.offsetY ?? 0
+  markDirty()
+}
+
+/** 重命名当前激活画布 */
+export function renameCanvas(name: string) {
+  const store = loadStore()
+  const canvas = store.canvases.find(c => c.id === store.activeId)
+  if (canvas) {
+    canvas.name = name || '未命名画布'
+    canvas.updatedAt = Date.now()
+    saveStore(store)
   }
 }
 
-/** 清除存档 */
-export function clearState() {
-  localStorage.removeItem(STORAGE_KEY)
+/** 删除指定画布，若删除的是当前激活画布则自动切换到最近的画布 */
+export function deleteCanvas(id: string) {
+  const store = loadStore()
+  store.canvases = store.canvases.filter(c => c.id !== id)
+
+  if (store.activeId === id) {
+    const remaining = [...store.canvases].sort((a, b) => b.updatedAt - a.updatedAt)
+    if (remaining.length > 0) {
+      store.activeId = remaining[0].id
+      const canvas = remaining[0]
+      nodes.clear()
+      edges.clear()
+      selectedIds.clear()
+      for (const node of canvas.nodes) nodes.set(node.id, node)
+      for (const edge of canvas.edges) edges.set(edge.id, edge)
+      viewport.scale = clamp(canvas.viewport.scale ?? 1, MIN_SCALE, MAX_SCALE)
+      viewport.offsetX = canvas.viewport.offsetX ?? 0
+      viewport.offsetY = canvas.viewport.offsetY ?? 0
+    } else {
+      // 没有画布了，创建一个空的
+      const newId = uid('canvas-')
+      const now = Date.now()
+      store.canvases.push({
+        id: newId, name: '未命名画布', createdAt: now, updatedAt: now,
+        nodes: [], edges: [], viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+      })
+      store.activeId = newId
+      nodes.clear()
+      edges.clear()
+      selectedIds.clear()
+      resetViewport()
+    }
+  }
+  saveStore(store)
+  markDirty()
 }
+
+/** 清除所有存档（重置） */
+export function clearState() {
+  localStorage.removeItem(STORE_KEY)
+  localStorage.removeItem(OLD_STORAGE_KEY)
+}
+
 
 // --- 核心状态 ---
 export const nodes = new Map<string, FlowNode>()
@@ -99,6 +266,13 @@ export let hoveredAnchorDir: AnchorDir | null = null
 export let reconnectEdgeId: string | null = null
 export let reconnectEnd: 'source' | 'target' | null = null
 export let hoveredEdgeEnd: { edgeId: string; end: 'source' | 'target' } | null = null
+
+// --- Resize 状态 ---
+export let resizeNodeId: string | null = null
+export let resizeHandle: ResizeHandle | null = null
+export let resizeStartCanvas: Point = { x: 0, y: 0 }
+export let resizeStartNode: { x: number; y: number; width: number; height: number } = { x: 0, y: 0, width: 0, height: 0 }
+export let hoveredResizeHandle: { nodeId: string; handle: ResizeHandle } | null = null
 
 // --- 剪贴板 ---
 export let clipboardNodes: FlowNode[] = []
@@ -146,21 +320,24 @@ export function setDefaultLineType(type: LineType) {
 }
 
 // --- 颜色模式 ---
-export type ColorMode = 'dark' | 'light'
-export let colorMode: ColorMode = 'dark'
+export type ColorMode = 'dark' | 'light' | 'auto'
+export let colorMode: ColorMode = 'auto'
 
-/** 设置颜色模式 */
-export function setColorMode(mode: ColorMode) {
-  colorMode = mode
-  applyTheme(mode)
-  // 同步 HTML data-theme 属性
-  document.documentElement.setAttribute('data-theme', mode)
-  markDirty()
+/** 解析颜色模式为实际主题（auto → 根据系统偏好） */
+export function getResolvedTheme(mode: ColorMode): 'dark' | 'light' {
+  if (mode === 'auto') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return mode
 }
 
-/** 切换颜色模式 */
-export function toggleColorMode() {
-  setColorMode(colorMode === 'dark' ? 'light' : 'dark')
+/** 应用颜色模式（解析 auto → 实际主题） */
+export function setColorMode(mode: ColorMode) {
+  colorMode = mode
+  const resolved = getResolvedTheme(mode)
+  applyTheme(resolved)
+  document.documentElement.setAttribute('data-theme', resolved)
+  markDirty()
 }
 
 /** 对齐到网格（如果 snapToGrid 开启） */
@@ -219,6 +396,19 @@ export function setReconnect(edgeId: string | null, end: 'source' | 'target' | n
 
 export function setHoveredEdgeEnd(edgeId: string | null, end: 'source' | 'target' | null) {
   hoveredEdgeEnd = (edgeId && end) ? { edgeId, end } : null
+  markDirty()
+}
+
+export function setResize(nodeId: string | null, handle: ResizeHandle | null, startCanvas?: Point, startNode?: { x: number; y: number; width: number; height: number }) {
+  resizeNodeId = nodeId
+  resizeHandle = handle
+  if (startCanvas) resizeStartCanvas = startCanvas
+  if (startNode) resizeStartNode = startNode
+  markDirty()
+}
+
+export function setHoveredResizeHandle(nodeId: string | null, handle: ResizeHandle | null) {
+  hoveredResizeHandle = (nodeId && handle) ? { nodeId, handle } : null
   markDirty()
 }
 

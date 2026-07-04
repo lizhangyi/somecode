@@ -1,9 +1,9 @@
 // nodes.ts — 节点渲染 + 命中检测
 
-import type { FlowNode, NodeShape, Point } from './types'
+import type { FlowNode, NodeShape, Point, ResizeHandle } from './types'
 import { ctx } from './canvas'
 import { viewport, nodes } from './state'
-import { THEME, NODE_COLORS, FONT_FAMILY, FONT_SIZE } from './config'
+import { THEME, NODE_COLORS, FONT_FAMILY, FONT_SIZE, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_HIT_SIZE } from './config'
 import { pointInRect, pointInCircle, pointInDiamond } from './utils/geometry'
 
 /**
@@ -82,7 +82,7 @@ function drawRoundRect(x: number, y: number, w: number, h: number, r: number) {
   ctx.closePath()
 }
 
-/** 绘制节点文字（自动换行 + 居中） */
+/** 绘制节点文字（裁剪到形状内 + 自动换行 + 超出显示省略号） */
 function drawNodeText(text: string, cx: number, cy: number, w: number, h: number, shape: NodeShape) {
   if (!text) return
 
@@ -99,16 +99,33 @@ function drawNodeText(text: string, cx: number, cy: number, w: number, h: number
 
   const lines = wrapText(text, availW)
   const lineH = FONT_SIZE + 4
-  const startY = cy - (lines.length - 1) * lineH / 2
 
-  for (let i = 0; i < lines.length; i++) {
-    // 如果文字超出可用高度，截断
-    if (i * lineH > availH) {
-      ctx.fillText('...', cx, startY + i * lineH)
-      break
+  // 计算可显示的最大行数
+  const maxLines = Math.floor(availH / lineH)
+  const visibleLines = Math.min(lines.length, maxLines)
+
+  // 居中显示可见行
+  const startY = cy - (visibleLines - 1) * lineH / 2
+
+  // 裁剪到节点形状内，确保文字不溢出
+  ctx.save()
+  drawShape(shape, cx, cy, w, h)
+  ctx.clip()
+
+  for (let i = 0; i < visibleLines; i++) {
+    let line = lines[i]
+    // 最后一行如果被截断，加省略号
+    if (i === visibleLines - 1 && lines.length > maxLines) {
+      // 确保省略号能放下
+      while (ctx.measureText(line + '...').width > availW && line.length > 0) {
+        line = line.slice(0, -1)
+      }
+      line = line + '...'
     }
-    ctx.fillText(lines[i], cx, startY + i * lineH)
+    ctx.fillText(line, cx, startY + i * lineH)
   }
+
+  ctx.restore()
 }
 
 /** 文字换行 */
@@ -169,4 +186,77 @@ export function hitTestNodeShape(point: Point, node: FlowNode): boolean {
 /** 获取所有节点（按添加顺序） */
 export function getAllNodes(): FlowNode[] {
   return Array.from(nodes.values())
+}
+
+// --- Resize 手柄 ---
+
+/** 节点 4 个角手柄位置 */
+const RESIZE_HANDLES: ResizeHandle[] = ['nw', 'ne', 'se', 'sw']
+
+/** 获取节点 resize 手柄的位置（画布坐标） */
+function getResizeHandlePositions(node: FlowNode): Record<ResizeHandle, Point> {
+  const { x, y, width, height } = node
+  const hw = width / 2
+  const hh = height / 2
+  return {
+    nw: { x: x - hw, y: y - hh },
+    n:  { x: x,      y: y - hh },
+    ne: { x: x + hw, y: y - hh },
+    e:  { x: x + hw, y: y      },
+    se: { x: x + hw, y: y + hh },
+    s:  { x: x,      y: y + hh },
+    sw: { x: x - hw, y: y + hh },
+    w:  { x: x - hw, y: y      },
+  }
+}
+
+/** 绘制选中节点的 resize 手柄（4 个角） */
+export function drawResizeHandles(node: FlowNode) {
+  const scale = viewport.scale
+  const size = RESIZE_HANDLE_SIZE / scale
+  const positions = getResizeHandlePositions(node)
+
+  ctx.save()
+  ctx.fillStyle = THEME.anchor
+  ctx.strokeStyle = THEME.nodeFill
+  ctx.lineWidth = 2 / scale
+
+  for (const h of RESIZE_HANDLES) {
+    const pos = positions[h]
+    ctx.beginPath()
+    ctx.rect(pos.x - size / 2, pos.y - size / 2, size, size)
+    ctx.fill()
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+/**
+ * 命中检测：检测点击是否命中节点的 resize 手柄（4 个角）
+ * 返回命中的手柄类型，未命中返回 null
+ */
+export function hitTestResizeHandle(point: Point, node: FlowNode): ResizeHandle | null {
+  const scale = viewport.scale
+  const hitSize = RESIZE_HANDLE_HIT_SIZE / scale
+  const positions = getResizeHandlePositions(node)
+
+  for (const h of RESIZE_HANDLES) {
+    const pos = positions[h]
+    if (Math.abs(point.x - pos.x) <= hitSize / 2 &&
+        Math.abs(point.y - pos.y) <= hitSize / 2) {
+      return h
+    }
+  }
+  return null
+}
+
+/** 根据 resize 手柄返回对应的 CSS cursor */
+export function getResizeCursor(handle: ResizeHandle): string {
+  switch (handle) {
+    case 'nw':
+    case 'se': return 'nwse-resize'
+    case 'ne':
+    case 'sw': return 'nesw-resize'
+    default: return 'default'
+  }
 }

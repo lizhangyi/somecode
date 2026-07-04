@@ -1,6 +1,6 @@
 // interaction.ts — 交互核心：鼠标/键盘事件分发 + 状态机管理
 
-import type { Point, NodeShape, AnchorDir, FlowNode, FlowEdge } from './types'
+import type { Point, NodeShape, AnchorDir, FlowNode, FlowEdge, ResizeHandle } from './types'
 import { canvas, screenToCanvas, getCanvasSize } from './canvas'
 import {
   viewport, interactionState, selectedIds,
@@ -16,15 +16,17 @@ import {
   hoveredAnchorNodeId, applySnap, toggleSnapToGrid,
   defaultLineType,
   reconnectEdgeId, reconnectEnd, setReconnect, hoveredEdgeEnd, setHoveredEdgeEnd,
+  resizeNodeId, resizeHandle, resizeStartCanvas, resizeStartNode,
+  setResize, hoveredResizeHandle, setHoveredResizeHandle,
 } from './state'
-import { hitTestNode, getAllNodes } from './nodes'
+import { hitTestNode, getAllNodes, hitTestResizeHandle, getResizeCursor } from './nodes'
 import { hitTestEdge, hitTestEdgeEndpoint } from './edges'
 import { hitTestAnchor, getAnchorPosition } from './anchors'
 import { execute, undo, redo } from './history'
 import { startEdit, isEditing } from './texteditor'
 import { render } from './renderer'
-import { MIN_SCALE, MAX_SCALE, ZOOM_STEP } from './config'
-import { clamp } from './utils/geometry'
+import { MIN_SCALE, MAX_SCALE, ZOOM_STEP, MIN_NODE_WIDTH, MIN_NODE_HEIGHT, GRID_SIZE } from './config'
+import { clamp, snapToGridValue } from './utils/geometry'
 import { showContextMenu, closeContextMenu, isContextMenuOpen } from './contextmenu'
 
 // --- 内部状态 ---
@@ -67,6 +69,18 @@ function onMouseDown(e: MouseEvent) {
   }
 
   if (e.button !== 0) return
+
+  // 检查是否点击了选中节点的 resize 手柄
+  for (const id of selectedIds) {
+    const node = nodes.get(id)
+    if (!node) continue
+    const handle = hitTestResizeHandle(canvasPt, node)
+    if (handle) {
+      setInteractionState('resizing')
+      setResize(node.id, handle, canvasPt, { x: node.x, y: node.y, width: node.width, height: node.height })
+      return
+    }
+  }
 
   // 检查是否点击了选中节点的锚点
   for (const id of selectedIds) {
@@ -142,6 +156,25 @@ function onMouseMove(e: MouseEvent) {
 
   switch (interactionState) {
     case 'idle': {
+      // 检查 resize 手柄 hover（优先级最高）
+      let resizeHovered = false
+      for (const id of selectedIds) {
+        const node = nodes.get(id)
+        if (!node) continue
+        const handle = hitTestResizeHandle(canvasPt, node)
+        if (handle) {
+          setHoveredResizeHandle(node.id, handle)
+          canvas.style.cursor = getResizeCursor(handle)
+          resizeHovered = true
+          break
+        }
+      }
+      if (!resizeHovered && hoveredResizeHandle !== null) {
+        setHoveredResizeHandle(null, null)
+      }
+
+      if (resizeHovered) break
+
       // 检查锚点hover
       let hovered = false
       for (const id of selectedIds) {
@@ -301,6 +334,23 @@ function onMouseMove(e: MouseEvent) {
       forceRender(render)
       break
     }
+
+    case 'resizing': {
+      if (resizeNodeId && resizeHandle) {
+        const node = nodes.get(resizeNodeId)
+        if (node) {
+          const newBounds = calculateResize(
+            resizeHandle,
+            canvasPt,
+            resizeStartNode,
+            snapToGrid
+          )
+          updateNode(resizeNodeId, newBounds)
+          forceRender(render)
+        }
+      }
+      break
+    }
   }
 }
 
@@ -436,6 +486,34 @@ function onMouseUp(e: MouseEvent) {
       }
       setInteractionState('idle')
       forceRender(render)
+      break
+    }
+
+    case 'resizing': {
+      if (resizeNodeId) {
+        const node = nodes.get(resizeNodeId)
+        if (node) {
+          const newX = node.x
+          const newY = node.y
+          const newW = node.width
+          const newH = node.height
+          const oldX = resizeStartNode.x
+          const oldY = resizeStartNode.y
+          const oldW = resizeStartNode.width
+          const oldH = resizeStartNode.height
+
+          if (newX !== oldX || newY !== oldY || newW !== oldW || newH !== oldH) {
+            const nodeId = resizeNodeId
+            execute({
+              type: 'resize-node',
+              do: () => updateNode(nodeId, { x: newX, y: newY, width: newW, height: newH }),
+              undo: () => updateNode(nodeId, { x: oldX, y: oldY, width: oldW, height: oldH }),
+            })
+          }
+        }
+      }
+      setResize(null, null)
+      setInteractionState('idle')
       break
     }
   }
@@ -697,4 +775,46 @@ export function addNodeAtCenter(shape: NodeShape): FlowNode {
 
   forceRender(render)
   return node
+}
+
+/**
+ * 计算 resize 后的节点几何属性
+ * 根据拖拽的手柄，固定对边/对角，移动当前边/角
+ */
+function calculateResize(
+  handle: ResizeHandle,
+  mouseCanvas: Point,
+  start: { x: number; y: number; width: number; height: number },
+  doSnap: boolean
+): { x: number; y: number; width: number; height: number } {
+  // 原始边界
+  let left = start.x - start.width / 2
+  let top = start.y - start.height / 2
+  let right = start.x + start.width / 2
+  let bottom = start.y + start.height / 2
+
+  const snapVal = (v: number) => doSnap ? snapToGridValue(v, GRID_SIZE) : v
+
+  // 根据手柄移动对应边
+  if (handle.includes('w')) left = snapVal(mouseCanvas.x)
+  if (handle.includes('e')) right = snapVal(mouseCanvas.x)
+  if (handle.includes('n')) top = snapVal(mouseCanvas.y)
+  if (handle.includes('s')) bottom = snapVal(mouseCanvas.y)
+
+  // 强制最小尺寸
+  if (right - left < MIN_NODE_WIDTH) {
+    if (handle.includes('w')) left = right - MIN_NODE_WIDTH
+    else if (handle.includes('e')) right = left + MIN_NODE_WIDTH
+  }
+  if (bottom - top < MIN_NODE_HEIGHT) {
+    if (handle.includes('n')) top = bottom - MIN_NODE_HEIGHT
+    else if (handle.includes('s')) bottom = top + MIN_NODE_HEIGHT
+  }
+
+  const width = right - left
+  const height = bottom - top
+  const x = (left + right) / 2
+  const y = (top + bottom) / 2
+
+  return { x, y, width, height }
 }

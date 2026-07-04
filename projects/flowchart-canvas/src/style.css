@@ -266,10 +266,16 @@ html, body {
   background: var(--c-bg);
   color: var(--c-text);
   font-size: 14px;
-  padding: 2px 6px;
+  font-family: inherit;
+  padding: 4px 6px;
   outline: none;
   z-index: 10;
   text-align: center;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* --- Property Panel --- */
@@ -339,6 +345,14 @@ html, body {
   gap: 8px;
 }
 
+.property-row-text {
+  align-items: flex-start;
+}
+
+.property-row-text label {
+  padding-top: 4px;
+}
+
 .property-row label {
   font-size: 13px;
   color: var(--c-text-dim);
@@ -367,6 +381,27 @@ html, body {
 
 .property-row input[type="text"]:focus,
 .property-row input[type="number"]:focus {
+  border-color: var(--c-accent);
+}
+
+.property-row textarea {
+  flex: 1;
+  background: var(--c-input-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  color: var(--c-text);
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.4;
+  transition: border-color 0.15s;
+}
+
+.property-row textarea:focus {
   border-color: var(--c-accent);
 }
 
@@ -502,4 +537,244 @@ html, body {
   padding-top: 8px;
   height: 0;
   background: transparent;
+}
+
+/* --- Canvas Switcher --- */
+.canvas-switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.canvas-name-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--c-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+  max-width: 200px;
+}
+
+.canvas-name-btn:hover {
+  background: var(--c-hover-bg);
+  border-color: var(--c-border);
+  color: var(--c-hover-text);
+}
+
+.canvas-name-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.canvas-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-switcher-arrow {
+  font-size: 10px;
+  color: var(--c-text-faint);
+  flex-shrink: 0;
+}
+
+.canvas-list-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--c-toolbar-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 100;
+  min-width: 200px;
+  max-width: 280px;
+  box-shadow: 0 8px 32px var(--c-shadow);
+  transition: background 0.2s, border-color 0.2s;
+}
+.canvas-list-dropdown.open {
+  display: block;
+}
+
+.canvas-list-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.canvas-list-item:hover {
+  background: var(--c-hover-bg);
+}
+.canvas-list-item.active {
+  background: var(--c-hover-bg);
+}
+.canvas-list-item.active .canvas-list-name {
+  color: var(--c-accent);
+  font-weight: 600;
+}
+.canvas-list-item.active::before {
+  content: '●';
+  color: var(--c-accent);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.canvas-list-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-list-time {
+  font-size: 11px;
+  color: var(--c-text-faint);
+  flex-shrink: 0;
+}
+
+.canvas-list-delete {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--c-text-faint);
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.canvas-list-delete:hover {
+  background: var(--c-danger);
+  color: #fff;
+}
+
+.canvas-list-divider {
+  height: 1px;
+  background: var(--c-border);
+  margin: 4px 0;
+}
+
+.canvas-list-action {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.canvas-list-action:hover {
+  background: var(--c-hover-bg);
+  color: var(--c-hover-text);
+}
+
+/* --- Shape Dropdown --- */
+.shape-widget {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.shape-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  background: var(--c-toolbar-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 100;
+  min-width: 120px;
+  box-shadow: 0 4px 16px var(--c-shadow);
+  transition: background 0.2s, border-color 0.2s;
+}
+.shape-dropdown.open {
+  display: block;
+}
+.shape-option {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.12s, color 0.12s;
+}
+.shape-option:hover {
+  background: var(--c-hover-bg);
+  color: var(--c-hover-text);
+}
+.shape-icon {
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+  font-size: 15px;
+}
+
+/* --- Theme Dropdown --- */
+.theme-widget {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.theme-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--c-toolbar-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 100;
+  min-width: 130px;
+  box-shadow: 0 4px 16px var(--c-shadow);
+  transition: background 0.2s, border-color 0.2s;
+}
+.theme-dropdown.open {
+  display: block;
+}
+.theme-option {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.theme-option:hover {
+  background: var(--c-hover-bg);
+  color: var(--c-hover-text);
+}
+.theme-option.selected {
+  color: var(--c-accent);
+  font-weight: 600;
+}
+.theme-option.selected::before {
+  content: '✓ ';
 }
