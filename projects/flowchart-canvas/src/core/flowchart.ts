@@ -378,15 +378,45 @@ export class Flowchart {
   }
 
   setDefaultLineType(type: LineType): void {
+    const oldType = this.state.defaultLineType
+    if (oldType === type) return
+
+    // 记录所有边的旧 lineType，用于撤销
+    const oldTypes: [string, LineType | undefined][] = []
+    for (const edge of this.state.edges.values()) {
+      oldTypes.push([edge.id, edge.lineType])
+      edge.lineType = type
+    }
+
     this.state.setDefaultLineType(type)
+
+    this.history.execute({
+      type: 'set-default-line-type',
+      do: () => {
+        for (const [id] of oldTypes) {
+          const e = this.state.edges.get(id)
+          if (e) e.lineType = type
+        }
+        this.state.setDefaultLineType(type)
+        this.state.markDirty()
+      },
+      undo: () => {
+        for (const [id, old] of oldTypes) {
+          const e = this.state.edges.get(id)
+          if (e) e.lineType = old
+        }
+        this.state.setDefaultLineType(oldType)
+        this.state.markDirty()
+      },
+    })
+
     this.notifyDirty()
     this.forceRender()
   }
 
   toggleDefaultLineType(): void {
-    this.state.toggleDefaultLineType()
-    this.notifyDirty()
-    this.forceRender()
+    const newType = this.state.defaultLineType === 'bezier' ? 'orthogonal' : 'bezier'
+    this.setDefaultLineType(newType)
   }
 
   // ============================================================
@@ -522,7 +552,7 @@ export class Flowchart {
   // ============================================================
 
   /** 通知数据变化（消费者可监听 dirty 事件做持久化） */
-  private notifyDirty(): void {
+  notifyDirty(): void {
     this.emit('dirty', undefined)
   }
 

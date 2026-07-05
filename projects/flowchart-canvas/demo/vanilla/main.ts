@@ -16,6 +16,30 @@ const fc = new Flowchart(canvasEl, {
   textEditor: true,
 })
 
+// --- 持久化（监听 dirty 事件自动保存） ---
+const STORAGE_KEY = 'flowchart-canvas-demo'
+let suppressSave = true
+
+// 尝试加载已保存的数据，没有则创建示例节点
+const saved = localStorage.getItem(STORAGE_KEY)
+if (saved) {
+  fc.fromJSON(saved)
+} else {
+  createDemoNodes()
+}
+suppressSave = false
+
+// 数据变化时自动保存到 localStorage
+fc.on('dirty', () => {
+  if (suppressSave) return
+  localStorage.setItem(STORAGE_KEY, fc.toJSON())
+})
+
+// 页面卸载前兜底保存
+window.addEventListener('beforeunload', () => {
+  localStorage.setItem(STORAGE_KEY, fc.toJSON())
+})
+
 // --- 创建示例节点 ---
 function createDemoNodes() {
   const { width, height } = fc.canvasHelper.getCanvasSize()
@@ -31,8 +55,6 @@ function createDemoNodes() {
   fc.addEdge(process.id, 'bottom', decide.id, 'top')
   fc.addEdge(decide.id, 'bottom', end.id, 'top')
 }
-
-createDemoNodes()
 
 // --- 缩放显示（事件驱动） ---
 const zoomDisplay = document.getElementById('zoom-display')!

@@ -14,36 +14,136 @@ function getLineType(edge: FlowEdge): LineType {
   return edge.lineType || 'bezier'
 }
 
+/** 近对齐阈值：dy/dx 小于此值时直接连线，不产生弯折 */
+const ALIGN_THRESHOLD = 6
+
 /**
  * 计算正交折线的完整绘制路径点（含起点 p0 和终点 p3）
- * 返回 [p0, s, turn1, ..., t, p3]
+ * 智能路由：自适应偏移、同方向绕行、近对齐直线化、共线简化
  */
 export function getOrthogonalPath(
   p0: Point, dir0: AnchorDir,
   p3: Point, dir3: AnchorDir,
-  offset: number = 20,
+  offset?: number,
 ): Point[] {
-  const s = anchorOffset(p0, dir0, offset)
-  const t = anchorOffset(p3, dir3, offset)
+  const dx = p3.x - p0.x
+  const dy = p3.y - p0.y
+  const dist = Math.hypot(dx, dy)
+  // 自适应偏移：根据距离缩放，限制在 10~30px
+  const off = offset ?? Math.min(30, Math.max(10, dist * 0.2))
 
-  const dir0IsH = dir0 === 'left' || dir0 === 'right'
-  const dir3IsH = dir3 === 'left' || dir3 === 'right'
+  const s = anchorOffset(p0, dir0, off)
+  const t = anchorOffset(p3, dir3, off)
 
-  if (dir0IsH === dir3IsH) {
-    const midX = (s.x + t.x) / 2
-    const midY = (s.y + t.y) / 2
-    if (dir0IsH) {
-      return [p0, s, { x: s.x, y: midY }, { x: t.x, y: midY }, t, p3]
-    } else {
-      return [p0, s, { x: midX, y: s.y }, { x: midX, y: t.y }, t, p3]
-    }
+  const dir0H = dir0 === 'left' || dir0 === 'right'
+  const dir3H = dir3 === 'left' || dir3 === 'right'
+
+  let path: Point[]
+
+  if (dir0H && dir3H) {
+    path = routeBothH(p0, s, dir0, p3, t, dir3, dy, off)
+  } else if (!dir0H && !dir3H) {
+    path = routeBothV(p0, s, dir0, p3, t, dir3, dx, off)
+  } else if (dir0H) {
+    // 源水平 + 目标垂直：L 路由
+    path = [p0, s, { x: t.x, y: s.y }, t, p3]
   } else {
-    if (dir0IsH) {
-      return [p0, s, { x: t.x, y: s.y }, t, p3]
-    } else {
-      return [p0, s, { x: s.x, y: t.y }, t, p3]
-    }
+    // 源垂直 + 目标水平：L 路由
+    path = [p0, s, { x: s.x, y: t.y }, t, p3]
   }
+
+  return simplifyPath(path)
+}
+
+/** 两个水平锚点的路由 */
+function routeBothH(
+  p0: Point, s: Point, dir0: AnchorDir,
+  p3: Point, t: Point, dir3: AnchorDir,
+  dy: number, off: number,
+): Point[] {
+  const sameDir = dir0 === dir3
+  const facing = (dir0 === 'right' && dir3 === 'left') || (dir0 === 'left' && dir3 === 'right')
+
+  // 近水平对齐：直接连线
+  if (Math.abs(dy) < ALIGN_THRESHOLD) return [p0, p3]
+
+  if (facing) {
+    // 相对方向（right→left）：Z 路由
+    const midX = (s.x + t.x) / 2
+    return [p0, s, { x: midX, y: s.y }, { x: midX, y: t.y }, t, p3]
+  }
+
+  if (sameDir) {
+    // 同方向（right→right）：绕到外侧再折回
+    const turnX = dir0 === 'right'
+      ? Math.max(s.x, t.x) + off
+      : Math.min(s.x, t.x) - off
+    return [p0, s, { x: turnX, y: s.y }, { x: turnX, y: t.y }, t, p3]
+  }
+
+  // 相背方向（right→left 但目标在源左侧）：中点 Z 路由
+  const midX = (s.x + t.x) / 2
+  return [p0, s, { x: midX, y: s.y }, { x: midX, y: t.y }, t, p3]
+}
+
+/** 两个垂直锚点的路由 */
+function routeBothV(
+  p0: Point, s: Point, dir0: AnchorDir,
+  p3: Point, t: Point, dir3: AnchorDir,
+  dx: number, off: number,
+): Point[] {
+  const sameDir = dir0 === dir3
+  const facing = (dir0 === 'bottom' && dir3 === 'top') || (dir0 === 'top' && dir3 === 'bottom')
+
+  if (Math.abs(dx) < ALIGN_THRESHOLD) return [p0, p3]
+
+  if (facing) {
+    const midY = (s.y + t.y) / 2
+    return [p0, s, { x: s.x, y: midY }, { x: t.x, y: midY }, t, p3]
+  }
+
+  if (sameDir) {
+    const turnY = dir0 === 'bottom'
+      ? Math.max(s.y, t.y) + off
+      : Math.min(s.y, t.y) - off
+    return [p0, s, { x: s.x, y: turnY }, { x: t.x, y: turnY }, t, p3]
+  }
+
+  const midY = (s.y + t.y) / 2
+  return [p0, s, { x: s.x, y: midY }, { x: t.x, y: midY }, t, p3]
+}
+
+/**
+ * 简化路径：移除重复点和共线点
+ * 共线判定：连续三点方向相同（叉积为零且点积为正）
+ */
+function simplifyPath(path: Point[]): Point[] {
+  if (path.length <= 2) return path
+
+  const result: Point[] = [path[0]]
+
+  for (let i = 1; i < path.length; i++) {
+    const prev = result[result.length - 1]
+    const curr = path[i]
+
+    // 跳过重复点
+    if (curr.x === prev.x && curr.y === prev.y) continue
+
+    // 检查与前一点是否共线（需有下一个点参与判断）
+    if (i < path.length - 1) {
+      const next = path[i + 1]
+      const dx1 = curr.x - prev.x
+      const dy1 = curr.y - prev.y
+      const dx2 = next.x - curr.x
+      const dy2 = next.y - curr.y
+      // 叉积为零 = 共线，点积非负 = 同向
+      if (dx1 * dy2 === dy1 * dx2 && dx1 * dx2 >= 0 && dy1 * dy2 >= 0) continue
+    }
+
+    result.push(curr)
+  }
+
+  return result
 }
 
 /** 锚点方向偏移 */
@@ -54,6 +154,26 @@ function anchorOffset(p: Point, dir: AnchorDir, offset: number): Point {
     case 'left':   return { x: p.x - offset, y: p.y }
     case 'right':  return { x: p.x + offset, y: p.y }
   }
+}
+
+/**
+ * 用圆角绘制正交路径（arcTo 拐弯）
+ * radius 为 0 时退化为直角
+ */
+function strokeOrthogonalPath(ctx: CanvasRenderingContext2D, path: Point[], radius: number): void {
+  ctx.moveTo(path[0].x, path[0].y)
+  if (path.length === 2) {
+    ctx.lineTo(path[1].x, path[1].y)
+    return
+  }
+  for (let i = 1; i < path.length - 1; i++) {
+    if (radius > 0) {
+      ctx.arcTo(path[i].x, path[i].y, path[i + 1].x, path[i + 1].y, radius)
+    } else {
+      ctx.lineTo(path[i].x, path[i].y)
+    }
+  }
+  ctx.lineTo(path[path.length - 1].x, path[path.length - 1].y)
 }
 
 /**
@@ -88,8 +208,8 @@ export function drawEdge(
     drawArrow(ctx, p2, p3, scale, isSelected, theme, 'bezier')
   } else {
     const path = getOrthogonalPath(p0, edge.sourceAnchor, p3, edge.targetAnchor)
-    ctx.moveTo(path[0].x, path[0].y)
-    for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y)
+    const cornerRadius = 6 / scale
+    strokeOrthogonalPath(ctx, path, cornerRadius)
     ctx.stroke()
     const lastSegStart = path[path.length - 2]
     const lastSegEnd = path[path.length - 1]
@@ -178,8 +298,8 @@ export function drawTempEdge(
     }
   } else {
     const path = getOrthogonalPath(sourcePos, sourceAnchor, endPoint, targetDir)
-    ctx.moveTo(path[0].x, path[0].y)
-    for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y)
+    const cornerRadius = 6 / scale
+    strokeOrthogonalPath(ctx, path, cornerRadius)
     ctx.stroke()
     ctx.setLineDash([])
     if (isSnapped) {

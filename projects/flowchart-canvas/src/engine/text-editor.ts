@@ -77,9 +77,11 @@ export class TextEditor {
         undo: () => this.fc.state.updateNode(nodeId, { text: oldText }),
       })
       this.fc.emit('node:update', { node: this.fc.state.getNode(nodeId)!, changes: { text: newText } })
+      this.fc.notifyDirty()
     }
 
     this.fc.state.setInteractionState('idle')
+    this.fc.forceRender()
   }
 
   /** 取消编辑 */
