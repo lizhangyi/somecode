@@ -1,6 +1,6 @@
-// config.ts — 常量配置
+// geometry/config.ts — 常量配置
 
-import type { NodeShape } from './types'
+import type { NodeShape } from '../core/types'
 
 /** 节点默认尺寸 */
 export const DEFAULT_NODE_SIZE: Record<NodeShape, { width: number; height: number }> = {
@@ -16,53 +16,6 @@ export const NODE_COLORS: Record<NodeShape, string> = {
   'round-rect': '#00b894',
   diamond: '#fdcb6e',
   circle: '#a29bfe',
-}
-
-/** 深色主题色 */
-const THEME_DARK = {
-  background: '#1a1a2e',
-  grid: 'rgba(255, 255, 255, 0.04)',
-  gridMajor: 'rgba(255, 255, 255, 0.08)',
-  nodeFill: 'rgba(30, 30, 60, 0.9)',
-  nodeStroke: '#4e7eff',
-  nodeText: '#e0e0e0',
-  edge: 'rgba(120, 120, 180, 0.6)',
-  edgeSelected: '#4e7eff',
-  anchor: '#4e7eff',
-  anchorHover: '#00d4ff',
-  tempEdge: 'rgba(78, 126, 255, 0.5)',
-  selectedOutline: '#00d4ff',
-  selectionBox: 'rgba(0, 212, 255, 0.1)',
-  selectionBoxBorder: 'rgba(0, 212, 255, 0.4)',
-}
-
-/** 浅色主题色 */
-const THEME_LIGHT = {
-  background: '#f5f6fa',
-  grid: 'rgba(0, 0, 0, 0.05)',
-  gridMajor: 'rgba(0, 0, 0, 0.1)',
-  nodeFill: 'rgba(255, 255, 255, 0.92)',
-  nodeStroke: '#4e7eff',
-  nodeText: '#333333',
-  edge: 'rgba(80, 80, 100, 0.5)',
-  edgeSelected: '#4e7eff',
-  anchor: '#4e7eff',
-  anchorHover: '#0099cc',
-  tempEdge: 'rgba(78, 126, 255, 0.5)',
-  selectedOutline: '#0099cc',
-  selectionBox: 'rgba(0, 153, 204, 0.1)',
-  selectionBoxBorder: 'rgba(0, 153, 204, 0.4)',
-}
-
-/** 当前主题色（可变对象，通过 applyTheme 切换） */
-export const THEME = { ...THEME_DARK }
-
-/** 应用主题 */
-export function applyTheme(mode: 'dark' | 'light') {
-  const source = mode === 'dark' ? THEME_DARK : THEME_LIGHT
-  Object.keys(THEME).forEach(key => {
-    ;(THEME as any)[key] = (source as any)[key]
-  })
 }
 
 /** 锚点半径（屏幕像素） */
@@ -83,9 +36,9 @@ export const RESIZE_HANDLE_SIZE = 8
 /** Resize 手柄命中大小（屏幕像素） */
 export const RESIZE_HANDLE_HIT_SIZE = 14
 
-/** 缩放范围 */
-export const MIN_SCALE = 0.2
-export const MAX_SCALE = 3.0
+/** 缩放范围默认值 */
+export const DEFAULT_MIN_SCALE = 0.2
+export const DEFAULT_MAX_SCALE = 3.0
 
 /** 缩放步进（按钮缩放） */
 export const ZOOM_STEP = 0.1
@@ -117,3 +70,6 @@ export const NODE_ID_PREFIX = 'node-'
 
 /** 连线ID前缀 */
 export const EDGE_ID_PREFIX = 'edge-'
+
+/** 序列化版本号 */
+export const DATA_VERSION = '1.1.0'

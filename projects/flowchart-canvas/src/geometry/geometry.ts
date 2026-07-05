@@ -1,6 +1,6 @@
-// utils/geometry.ts — 几何工具函数
+// geometry/geometry.ts — 几何工具函数（纯函数，无副作用）
 
-import type { Point } from '../types'
+import type { Point } from '../core/types'
 
 /** 两点距离 */
 export function dist(a: Point, b: Point): number {
@@ -46,9 +46,7 @@ export function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v))
 }
 
-/**
- * 将坐标对齐到网格
- */
+/** 将坐标对齐到网格 */
 export function snapToGridValue(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize
 }

@@ -1,0 +1,231 @@
+/* demo/vanilla/style.css — Vanilla JS Demo 应用 UI 样式 */
+
+:root {
+  --bg: #1a1a2e;
+  --toolbar-bg: rgba(20, 20, 40, 0.9);
+  --panel-bg: rgba(20, 20, 40, 0.85);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #e0e0e0;
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --accent: #4e7eff;
+  --accent-hover: rgba(78, 126, 255, 0.2);
+  --danger: #e74c3c;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* --- Toolbar --- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.toolbar-left, .toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  margin: 0 6px;
+}
+
+.tool-btn {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.tool-btn:hover { background: var(--accent-hover); }
+.tool-btn:disabled { opacity: 0.3; cursor: default; }
+.tool-btn.active { background: var(--accent); color: #fff; }
+
+/* --- Shape dropdown --- */
+.shape-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.shape-dropdown.open { display: block; }
+
+.shape-option {
+  padding: 6px 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shape-option:hover { background: var(--accent-hover); }
+
+/* --- Zoom display --- */
+.zoom-display {
+  min-width: 48px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* --- Main area --- */
+.main-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- Property panel --- */
+.property-panel {
+  width: 240px;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
+}
+
+.property-empty {
+  color: var(--text-dim);
+  text-align: center;
+  padding: 40px 0;
+}
+
+.property-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.property-row label {
+  width: 40px;
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.property-row input, .property-row textarea {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.property-row input:focus, .property-row textarea:focus {
+  border-color: var(--accent);
+}
+
+.property-row-text {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.property-row-text label {
+  width: auto;
+  margin-bottom: 4px;
+}
+
+.property-row textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+#prop-shape {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.delete-btn {
+  width: 100%;
+  padding: 8px;
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: var(--danger);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.delete-btn:hover {
+  background: rgba(231, 76, 60, 0.25);
+}
+
+/* --- Canvas cursor states --- */
+#canvas.connecting { cursor: crosshair; }
+#canvas.panning { cursor: grab; }
+#canvas.panning-active { cursor: grabbing; }
