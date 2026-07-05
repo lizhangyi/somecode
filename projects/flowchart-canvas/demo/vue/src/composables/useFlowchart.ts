@@ -73,9 +73,9 @@ function initFlowchart(canvas: HTMLCanvasElement) {
     zoomScale.value = e.viewport.scale
   })
   instance.on('theme:change', (e) => {
-    currentTheme.value = e.theme as ThemeOption
-    syncCssTheme(e.theme as ThemeOption)
-    saveTheme(e.theme as ThemeOption)
+    currentTheme.value = e.themeOption
+    syncCssTheme(e.themeOption)
+    saveTheme(e.themeOption)
   })
   instance.on('line-type:change', (e) => {
     defaultLineType.value = e.lineType

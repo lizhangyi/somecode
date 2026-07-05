@@ -137,7 +137,7 @@ export interface EventMap {
   /** 数据脏标记（需要持久化） */
   'dirty': void
   /** 主题变化 */
-  'theme:change': { theme: ThemeColors }
+  'theme:change': { theme: ThemeColors; themeOption: ThemeOption }
   /** 连线类型变化 */
   'line-type:change': { lineType: LineType }
   /** 历史栈变化 */

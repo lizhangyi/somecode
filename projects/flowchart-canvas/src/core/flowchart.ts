@@ -153,7 +153,7 @@ export class Flowchart {
   setTheme(theme: ThemeOption): void {
     this._theme = resolveTheme(theme)
     this._options.theme = theme
-    this.emit('theme:change', { theme: this._theme })
+    this.emit('theme:change', { theme: this._theme, themeOption: theme })
     this.forceRender()
   }
 
