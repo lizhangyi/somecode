@@ -1,0 +1,81 @@
+/* demo/vue/src/styles/main.css — 全局样式 */
+
+:root, [data-theme="dark"] {
+  --bg: #1a1a2e;
+  --toolbar-bg: rgba(20, 20, 40, 0.9);
+  --panel-bg: rgba(20, 20, 40, 0.85);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #e0e0e0;
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --accent: #4e7eff;
+  --accent-hover: rgba(78, 126, 255, 0.2);
+  --danger: #e74c3c;
+  --input-bg: rgba(0, 0, 0, 0.30);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f0f2f5;
+  --toolbar-bg: rgba(255, 255, 255, 0.92);
+  --panel-bg: rgba(255, 255, 255, 0.88);
+  --border: rgba(0, 0, 0, 0.12);
+  --text: #1a1a2e;
+  --text-dim: rgba(0, 0, 0, 0.45);
+  --accent: #4e7eff;
+  --accent-hover: rgba(78, 126, 255, 0.12);
+  --danger: #e74c3c;
+  --input-bg: rgba(0, 0, 0, 0.04);
+  color-scheme: light;
+}
+
+/* --- 工具栏按钮：无背景 --- */
+.toolbar .el-button {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--text) !important;
+}
+.toolbar .el-button:hover {
+  background: var(--accent-hover) !important;
+}
+.toolbar .el-button:disabled {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--text-dim) !important;
+}
+.toolbar .el-button--primary {
+  background: var(--accent-hover) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+.toolbar .el-button--primary:hover {
+  background: rgba(78, 126, 255, 0.25) !important;
+}
+.toolbar .el-button--danger {
+  background: rgba(231, 76, 60, 0.12) !important;
+  border-color: rgba(231, 76, 60, 0.3) !important;
+  color: var(--danger) !important;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #app { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+
+/* Element Plus 暗色主题覆盖 */
+.el-button { --el-button-text-color: var(--text); }
+.el-dropdown-menu { background: var(--panel-bg) !important; border-color: var(--border) !important; }
+.el-dropdown-menu__item { color: var(--text) !important; }
+.el-dropdown-menu__item:hover { background: var(--accent-hover) !important; }
+.el-form-item__label { color: var(--text-dim) !important; }
+.el-input__wrapper { background: var(--input-bg) !important; box-shadow: 0 0 0 1px var(--border) inset !important; }
+.el-input__inner { color: var(--text) !important; }
+.el-textarea__inner { background: var(--input-bg) !important; color: var(--text) !important; box-shadow: 0 0 0 1px var(--border) inset !important; }
+.el-color-picker__trigger { border-color: var(--border) !important; }
+.el-button--danger { --el-button-bg-color: rgba(231,76,60,0.15); --el-button-border-color: rgba(231,76,60,0.3); --el-button-text-color: var(--danger); }
+.el-button--danger:hover { --el-button-bg-color: rgba(231,76,60,0.25); }
