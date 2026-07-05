@@ -11,6 +11,7 @@
 - **内置交互** — 拖拽、缩放、框选、连线、调整大小、撤销/重做
 - **可选功能** — 右键菜单和文字编辑器内置，可通过选项关闭
 - **序列化** — `toJSON()` / `fromJSON()` + `dirty` 事件，存储策略由使用者决定
+- **导出图片** — `exportImage()` PNG 位图 + `exportSVG()` SVG 矢量图，支持网格/透明背景
 - **纯 Canvas 渲染** — 不依赖任何框架
 
 ---
@@ -363,6 +364,68 @@ if (json) {
 ```
 
 > **存储策略由使用者负责。** 库不关心你用 localStorage、IndexedDB 还是后端 API。推荐监听 `dirty` 事件触发持久化。
+
+---
+
+### 导出图片
+
+```ts
+fc.exportImage(options?)  // 返回 PNG data URL
+```
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `background` | `'grid' \| 'transparent'` | `'grid'` | 背景模式：`grid` 带网格背景色，`transparent` 透明背景（PNG 透明通道） |
+| `scale` | `number` | `1` | 导出倍率，`2` = 2x 高清 |
+
+```ts
+// 带网格背景
+const dataUrl = fc.exportImage({ background: 'grid' })
+
+// 透明背景（适合叠加到其他文档）
+const dataUrl = fc.exportImage({ background: 'transparent' })
+
+// 2x 高清
+const dataUrl = fc.exportImage({ background: 'grid', scale: 2 })
+
+// 下载
+const a = document.createElement('a')
+a.href = dataUrl
+a.download = 'flowchart.png'
+a.click()
+```
+
+导出时不会包含交互元素（选中框、锚点、resize 手柄等），只输出连线 + 节点内容。
+
+### 导出 SVG 矢量图
+
+```ts
+fc.exportSVG(options?)  // 返回 SVG XML 字符串
+```
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `background` | `'grid' \| 'transparent'` | `'transparent'` | 背景模式：`grid` 带网格背景色，`transparent` 透明背景 |
+| `padding` | `number` | `40` | 内容边距（画布坐标） |
+
+```ts
+// 透明背景（默认）
+const svg = fc.exportSVG()
+
+// 网格背景
+const svg = fc.exportSVG({ background: 'grid' })
+
+// 下载
+const blob = new Blob([svg], { type: 'image/svg+xml' })
+const url = URL.createObjectURL(blob)
+const a = document.createElement('a')
+a.href = url
+a.download = 'flowchart.svg'
+a.click()
+URL.revokeObjectURL(url)
+```
+
+SVG 矢量图放大不失真，可用 Figma、Illustrator 等工具编辑。导出内容与 `exportImage` 一致（只含连线 + 节点），但路径和形状使用 SVG 元素（`<rect>`、`<circle>`、`<path>` 等）。
 
 ---
 

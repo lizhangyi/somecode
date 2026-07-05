@@ -11,8 +11,30 @@
     <!-- Toolbar -->
     <div id="toolbar" class="toolbar">
       <div class="toolbar-left">
-        <button class="tool-btn" id="btn-export" title="导出 JSON">💾</button>
-        <button class="tool-btn" id="btn-import" title="导入 JSON">📂</button>
+        <div class="toolbar-group">
+          <button class="tool-btn" id="btn-file" title="文件">📁</button>
+          <div id="file-dropdown" class="shape-dropdown">
+            <div class="dropdown-label">导出</div>
+            <div class="shape-option" data-file-action="export-json"><span>💾</span> 导出 JSON</div>
+            <div class="shape-option has-submenu">
+              <span>🖼️</span>
+              <span class="submenu-label">导出图片</span>
+              <span class="submenu-arrow">▸</span>
+              <div class="submenu">
+                <div class="submenu-label">PNG 位图</div>
+                <div class="shape-option" data-file-action="export-img-grid"><span>▦</span> 网格背景</div>
+                <div class="shape-option" data-file-action="export-img-transparent"><span>□</span> 透明背景</div>
+                <div class="dropdown-divider"></div>
+                <div class="submenu-label">SVG 矢量图</div>
+                <div class="shape-option" data-file-action="export-svg-grid"><span>▦</span> 网格背景</div>
+                <div class="shape-option" data-file-action="export-svg-transparent"><span>□</span> 透明背景</div>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-label">导入</div>
+            <div class="shape-option" data-file-action="import-json"><span>📂</span> 导入 JSON</div>
+          </div>
+        </div>
         <input type="file" id="file-input" accept=".json" style="display:none" />
       </div>
 

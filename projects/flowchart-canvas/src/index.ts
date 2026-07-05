@@ -16,6 +16,9 @@ export type {
   ThemeColors,
   ThemeOption,
   FlowchartOptions,
+  ExportBackground,
+  ExportImageOptions,
+  ExportSVGOptions,
   EventMap,
 } from './core/types'
 

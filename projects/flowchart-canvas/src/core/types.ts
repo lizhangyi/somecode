@@ -96,6 +96,25 @@ export interface FlowchartOptions {
   maxScale?: number
 }
 
+/** 导出图片背景模式 */
+export type ExportBackground = 'grid' | 'transparent'
+
+/** 导出图片选项 */
+export interface ExportImageOptions {
+  /** 背景模式：'grid' 带网格背景，'transparent' 透明背景，默认 'grid' */
+  background?: ExportBackground
+  /** 导出倍率，1 = 原始 CSS 尺寸，2 = 2x 高清，默认 1 */
+  scale?: number
+}
+
+/** SVG 导出选项 */
+export interface ExportSVGOptions {
+  /** 背景模式：'grid' 带网格背景，'transparent' 透明背景，默认 'transparent' */
+  background?: ExportBackground
+  /** 内容边距（画布坐标），默认 40 */
+  padding?: number
+}
+
 // ============================================================
 //  事件映射
 // ============================================================

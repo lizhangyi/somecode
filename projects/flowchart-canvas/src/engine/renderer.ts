@@ -1,7 +1,7 @@
 // engine/renderer.ts — 渲染管线
 
 import type { Flowchart } from '../core/flowchart'
-import type { RenderCtx } from '../core/types'
+import type { RenderCtx, ExportBackground } from '../core/types'
 import { drawGrid } from '../geometry/grid'
 import { drawNode, drawResizeHandles } from '../geometry/nodes'
 import { drawEdge, drawTempEdge, drawEdgeEndpoints } from '../geometry/edges'
@@ -79,5 +79,52 @@ export function render(fc: Flowchart): void {
     ctx.strokeStyle = theme.selectionBoxBorder
     ctx.lineWidth = 1
     ctx.strokeRect(x, y, w, h)
+  }
+}
+
+/**
+ * 导出渲染：只绘制内容（连线 + 节点），不绘制交互元素（选中框、锚点、手柄等）
+ * 可选背景模式：grid（带网格背景色）或 transparent（透明）
+ */
+export function renderForExport(
+  fc: Flowchart,
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  background: ExportBackground,
+): void {
+  const { state, theme } = fc
+  const viewport = state.viewport
+  const rc: RenderCtx = { ctx, viewport, theme }
+
+  // 1. 屏幕坐标系：背景填充（仅 grid 模式）
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  if (background === 'grid') {
+    ctx.fillStyle = theme.background
+    ctx.fillRect(0, 0, width, height)
+  }
+
+  // 2. 切换到画布坐标系
+  ctx.setTransform(
+    dpr * viewport.scale, 0,
+    0, dpr * viewport.scale,
+    dpr * viewport.offsetX,
+    dpr * viewport.offsetY,
+  )
+
+  // 3. 背景网格（仅 grid 模式）
+  if (background === 'grid') {
+    drawGrid(ctx, viewport, theme, width, height)
+  }
+
+  // 4. 所有连线（不显示选中高亮）
+  for (const edge of state.edges.values()) {
+    drawEdge(rc, edge, state.nodes, false)
+  }
+
+  // 5. 所有节点（不显示选中高亮）
+  for (const node of state.nodes.values()) {
+    drawNode(rc, node, false)
   }
 }

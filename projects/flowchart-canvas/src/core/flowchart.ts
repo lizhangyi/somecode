@@ -3,7 +3,7 @@
 import type {
   FlowchartOptions, ThemeOption, ThemeColors, EventMap,
   FlowNode, FlowEdge, NodeShape, AnchorDir, LineType, Viewport, Point,
-  FlowchartData, Command,
+  FlowchartData, Command, ExportImageOptions, ExportBackground, ExportSVGOptions,
 } from './types'
 import { EventEmitter } from './event-emitter'
 import { FlowchartState } from './state'
@@ -13,7 +13,8 @@ import { HistoryManager } from '../engine/history'
 import { InteractionManager } from '../engine/interaction'
 import { TextEditor } from '../engine/text-editor'
 import { ContextMenu } from '../engine/context-menu'
-import { render } from '../engine/renderer'
+import { render, renderForExport } from '../engine/renderer'
+import { generateSVG } from '../engine/svg-exporter'
 import {
   DEFAULT_NODE_SIZE, NODE_ID_PREFIX, EDGE_ID_PREFIX, DATA_VERSION,
   DEFAULT_MIN_SCALE, DEFAULT_MAX_SCALE,
@@ -483,6 +484,46 @@ export class Flowchart {
       console.error('[Flowchart] fromJSON 失败:', e)
       return false
     }
+  }
+
+  // ============================================================
+  //  导出图片
+  // ============================================================
+
+  /**
+   * 导出当前画布为 PNG 图片
+   * @param options.background 背景模式：'grid' 带网格背景，'transparent' 透明背景，默认 'grid'
+   * @param options.scale 导出倍率，1 = 原始 CSS 尺寸，2 = 2x 高清，默认 1
+   * @returns PNG 格式的 data URL
+   */
+  exportImage(options?: ExportImageOptions): string {
+    const background: ExportBackground = options?.background ?? 'grid'
+    const scale = options?.scale ?? 1
+    const { width, height } = this.canvasHelper.getCanvasSize()
+    const dpr = this.canvasHelper.getDPR() * scale
+
+    // 创建离屏 canvas
+    const exportCanvas = document.createElement('canvas')
+    exportCanvas.width = Math.round(width * dpr)
+    exportCanvas.height = Math.round(height * dpr)
+    const ctx = exportCanvas.getContext('2d')!
+
+    // 渲染内容到离屏 canvas
+    renderForExport(this, ctx, width, height, dpr, background)
+
+    // PNG 支持透明通道
+    return exportCanvas.toDataURL('image/png')
+  }
+
+  /**
+   * 导出当前画布为 SVG 矢量图
+   * SVG 放大不失真，可用 Figma / Illustrator 等工具编辑
+   * @param options.background 背景模式：'grid' 网格背景，'transparent' 透明，默认 'transparent'
+   * @param options.padding 内容边距，默认 40
+   * @returns SVG XML 字符串
+   */
+  exportSVG(options?: ExportSVGOptions): string {
+    return generateSVG(this, options)
   }
 
   // ============================================================

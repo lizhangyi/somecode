@@ -267,23 +267,91 @@ propDelete.addEventListener('click', () => {
   fc.deleteSelected()
 })
 
-// --- 导入/导出 ---
-document.getElementById('btn-export')!.addEventListener('click', () => {
-  const json = fc.toJSON()
-  const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'flowchart.json'
-  a.click()
-  URL.revokeObjectURL(url)
+// --- 文件下拉菜单（导出/导入） ---
+const fileBtn = document.getElementById('btn-file')!
+const fileDropdown = document.getElementById('file-dropdown')!
+let fileDropdownOpen = false
+
+fileBtn.addEventListener('click', (e) => {
+  e.stopPropagation()
+  fileDropdownOpen = !fileDropdownOpen
+  fileDropdown.classList.toggle('open', fileDropdownOpen)
+})
+
+fileDropdown.addEventListener('click', (e) => {
+  e.stopPropagation()
+  const option = (e.target as HTMLElement).closest('.shape-option') as HTMLElement | null
+  if (!option) return
+  const action = option.dataset.fileAction
+  if (!action) return
+
+  switch (action) {
+    case 'export-json': {
+      const json = fc.toJSON()
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'flowchart.json'
+      a.click()
+      URL.revokeObjectURL(url)
+      break
+    }
+    case 'export-img-grid': {
+      const dataUrl = fc.exportImage({ background: 'grid', scale: 2 })
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = 'flowchart-grid.png'
+      a.click()
+      break
+    }
+    case 'export-img-transparent': {
+      const dataUrl = fc.exportImage({ background: 'transparent', scale: 2 })
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = 'flowchart-transparent.png'
+      a.click()
+      break
+    }
+    case 'export-svg-grid': {
+      const svg = fc.exportSVG({ background: 'grid' })
+      const blob = new Blob([svg], { type: 'image/svg+xml' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'flowchart-grid.svg'
+      a.click()
+      URL.revokeObjectURL(url)
+      break
+    }
+    case 'export-svg-transparent': {
+      const svg = fc.exportSVG({ background: 'transparent' })
+      const blob = new Blob([svg], { type: 'image/svg+xml' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'flowchart-transparent.svg'
+      a.click()
+      URL.revokeObjectURL(url)
+      break
+    }
+    case 'import-json':
+      fileInput.click()
+      break
+  }
+
+  fileDropdownOpen = false
+  fileDropdown.classList.remove('open')
+})
+
+document.addEventListener('click', (e) => {
+  if (fileDropdownOpen && !fileBtn.contains(e.target as HTMLElement)) {
+    fileDropdownOpen = false
+    fileDropdown.classList.remove('open')
+  }
 })
 
 const fileInput = document.getElementById('file-input') as HTMLInputElement
-document.getElementById('btn-import')!.addEventListener('click', () => {
-  fileInput.click()
-})
-
 fileInput.addEventListener('change', (e) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
