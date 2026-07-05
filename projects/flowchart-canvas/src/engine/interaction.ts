@@ -154,8 +154,17 @@ export class InteractionManager {
         this.state.select(hitNode.id)
         this.fc.emitSelectionChange()
       }
+      // 设置多节点拖拽：如果点击的节点已在选中集合中，则拖拽所有选中节点
+      const idsToDrag = this.state.selectedIds.has(hitNode.id)
+        ? Array.from(this.state.selectedIds)
+        : [hitNode.id]
+      const startPositions = new Map<string, { x: number; y: number }>()
+      for (const id of idsToDrag) {
+        const node = this.state.nodes.get(id)
+        if (node) startPositions.set(id, { x: node.x, y: node.y })
+      }
       this.state.setInteractionState('dragging-node')
-      this.state.setDragNode(hitNode.id, canvasPt, { x: hitNode.x, y: hitNode.y })
+      this.state.setDragNodes(idsToDrag, canvasPt, startPositions)
       this.fc.forceRender()
       return
     }
@@ -251,13 +260,17 @@ export class InteractionManager {
       }
 
       case 'dragging-node': {
-        if (this.state.dragNodeId) {
+        if (this.state.dragNodeIds.length > 0) {
           const dx = canvasPt.x - this.state.dragStartCanvas.x
           const dy = canvasPt.y - this.state.dragStartCanvas.y
-          this.state.updateNode(this.state.dragNodeId, {
-            x: this.state.applySnap(this.state.dragNodeStartPos.x + dx),
-            y: this.state.applySnap(this.state.dragNodeStartPos.y + dy),
-          })
+          for (const id of this.state.dragNodeIds) {
+            const start = this.state.dragNodeStartPositions.get(id)
+            if (!start) continue
+            this.state.updateNode(id, {
+              x: this.state.applySnap(start.x + dx),
+              y: this.state.applySnap(start.y + dy),
+            })
+          }
           this.fc.forceRender()
         }
         break
@@ -319,22 +332,29 @@ export class InteractionManager {
 
     switch (this.state.interactionState) {
       case 'dragging-node': {
-        if (this.state.dragNodeId) {
-          const node = this.state.nodes.get(this.state.dragNodeId)
-          if (node) {
-            const newX = node.x, newY = node.y
-            const oldX = this.state.dragNodeStartPos.x, oldY = this.state.dragNodeStartPos.y
-            if (newX !== oldX || newY !== oldY) {
-              const nodeId = this.state.dragNodeId
-              this.fc.history.execute({
-                type: 'move-node',
-                do: () => this.state.updateNode(nodeId, { x: newX, y: newY }),
-                undo: () => this.state.updateNode(nodeId, { x: oldX, y: oldY }),
-              })
-            }
+        // 收集所有被拖拽节点的位置变化，合并为一次撤销操作
+        const changes: { id: string; oldX: number; oldY: number; newX: number; newY: number }[] = []
+        for (const id of this.state.dragNodeIds) {
+          const node = this.state.nodes.get(id)
+          if (!node) continue
+          const start = this.state.dragNodeStartPositions.get(id)
+          if (!start) continue
+          if (node.x !== start.x || node.y !== start.y) {
+            changes.push({ id, oldX: start.x, oldY: start.y, newX: node.x, newY: node.y })
           }
         }
-        this.state.setDragNode(null, { x: 0, y: 0 }, { x: 0, y: 0 })
+        if (changes.length > 0) {
+          this.fc.history.execute({
+            type: 'move-nodes',
+            do: () => {
+              for (const c of changes) this.state.updateNode(c.id, { x: c.newX, y: c.newY })
+            },
+            undo: () => {
+              for (const c of changes) this.state.updateNode(c.id, { x: c.oldX, y: c.oldY })
+            },
+          })
+        }
+        this.state.setDragNodes(null, { x: 0, y: 0 }, new Map())
         this.state.setInteractionState('idle')
         break
       }

@@ -131,13 +131,15 @@ export interface EventMap {
   /** 删除连线 */
   'edge:remove': { id: string }
   /** 选中变化 */
-  'selection:change': { selectedIds: string[] }
+  'selection:change': { selectedIds: string[]; selectedEdgeIds: string[] }
   /** 视口变化 */
   'viewport:change': { viewport: Viewport }
   /** 数据脏标记（需要持久化） */
   'dirty': void
   /** 主题变化 */
   'theme:change': { theme: ThemeColors }
+  /** 连线类型变化 */
+  'line-type:change': { lineType: LineType }
   /** 历史栈变化 */
   'history:change': { canUndo: boolean; canRedo: boolean }
   /** 实例销毁 */

@@ -17,7 +17,7 @@ import { render, renderForExport } from '../engine/renderer'
 import { generateSVG } from '../engine/svg-exporter'
 import {
   DEFAULT_NODE_SIZE, NODE_ID_PREFIX, EDGE_ID_PREFIX, DATA_VERSION,
-  DEFAULT_MIN_SCALE, DEFAULT_MAX_SCALE,
+  DEFAULT_MIN_SCALE, DEFAULT_MAX_SCALE, ZOOM_STEP,
 } from '../geometry/config'
 import { uid, clamp } from '../geometry/geometry'
 
@@ -294,7 +294,10 @@ export class Flowchart {
 
   /** 内部方法：通知选中变化 */
   emitSelectionChange(): void {
-    this.emit('selection:change', { selectedIds: Array.from(this.state.selectedIds) })
+    this.emit('selection:change', {
+      selectedIds: Array.from(this.state.selectedIds),
+      selectedEdgeIds: Array.from(this.state.selectedEdgeIds),
+    })
   }
 
   // ============================================================
@@ -305,6 +308,34 @@ export class Flowchart {
     this.state.setScale(scale, centerScreen)
     this.emitViewportChange()
     this.forceRender()
+  }
+
+  /** 放大（以画布中心为锚点） */
+  zoomIn(): void {
+    const { width, height } = this.canvasHelper.getCanvasSize()
+    const newScale = clamp(
+      this.state.viewport.scale + ZOOM_STEP,
+      this._options.minScale,
+      this._options.maxScale,
+    )
+    this.setScale(newScale, { x: width / 2, y: height / 2 })
+  }
+
+  /** 缩小（以画布中心为锚点） */
+  zoomOut(): void {
+    const { width, height } = this.canvasHelper.getCanvasSize()
+    const newScale = clamp(
+      this.state.viewport.scale - ZOOM_STEP,
+      this._options.minScale,
+      this._options.maxScale,
+    )
+    this.setScale(newScale, { x: width / 2, y: height / 2 })
+  }
+
+  /** 设置缩放比例（以画布中心为锚点） */
+  setZoom(scale: number): void {
+    const { width, height } = this.canvasHelper.getCanvasSize()
+    this.setScale(scale, { x: width / 2, y: height / 2 })
   }
 
   setOffset(x: number, y: number): void {
@@ -413,6 +444,7 @@ export class Flowchart {
 
     this.notifyDirty()
     this.forceRender()
+    this.emit('line-type:change', { lineType: this.state.defaultLineType })
   }
 
   toggleDefaultLineType(): void {

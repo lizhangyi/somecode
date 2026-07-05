@@ -17,6 +17,7 @@ export class FlowchartState {
   readonly edges = new Map<string, FlowEdge>()
   viewport: Viewport = { scale: 1, offsetX: 0, offsetY: 0 }
   readonly selectedIds = new Set<string>()
+  readonly selectedEdgeIds = new Set<string>()
 
   // --- 交互状态 ---
   interactionState: InteractionState = 'idle'
@@ -40,10 +41,10 @@ export class FlowchartState {
   clipboardNodes: FlowNode[] = []
   clipboardEdges: FlowEdge[] = []
 
-  // --- 拖拽状态 ---
-  dragNodeId: string | null = null
+  // --- 拖拽状态（支持多节点拖拽） ---
+  dragNodeIds: string[] = []
   dragStartCanvas: Point = { x: 0, y: 0 }
-  dragNodeStartPos: Point = { x: 0, y: 0 }
+  dragNodeStartPositions: Map<string, { x: number; y: number }> = new Map()
 
   // --- 平移状态 ---
   panStartScreen: Point = { x: 0, y: 0 }
@@ -119,10 +120,10 @@ export class FlowchartState {
     this.markDirty()
   }
 
-  setDragNode(id: string | null, startCanvas: Point, startPos: Point): void {
-    this.dragNodeId = id
+  setDragNodes(ids: string[] | null, startCanvas: Point, startPositions: Map<string, { x: number; y: number }>): void {
+    this.dragNodeIds = ids || []
     this.dragStartCanvas = startCanvas
-    this.dragNodeStartPos = startPos
+    this.dragNodeStartPositions = startPositions || new Map()
   }
 
   setPanStart(screen: Point): void {
