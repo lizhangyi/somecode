@@ -28,3 +28,12 @@
 - 右键菜单和文字编辑器内置但可通过 options 关闭
 - 公共导出入口：`src/index.ts`
 - Vite 配置 `root: 'demo/vanilla'`，构建输出到 `dist/`
+
+## graph-editor — 关系图编辑器
+
+- Vue 3 + TS + @antv/g6@4.8.x + SCSS 项目，位于 `projects/graph-editor/`
+- 三 composable 架构：useGraphInstance（G6 实例）、useCommandManager（命令模式/撤销重做）、useGraphSync（防抖保存/重试）
+- 所有数据修改通过命令执行（ICommand 接口），确保撤销重做与同步一致性
+- StorageAdapter 模式：组件不关心存储细节，只需实现 load/save 接口
+- Playground 使用 localStorage 适配器，附带 axios 注释示例
+- 开发服务器端口 5174，`npm run dev` 启动
