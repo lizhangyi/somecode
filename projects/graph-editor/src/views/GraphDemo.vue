@@ -48,7 +48,7 @@
 
         <div class="graph-demo__divider"></div>
 
-        <!-- 切换选中边类型 -->
+        <!-- 切换所有边的类型 -->
         <span class="graph-demo__label">边类型：</span>
         <select
           class="graph-demo__select"
@@ -116,7 +116,7 @@
           </div>
 
           <p style="color: #999; font-size: 13px; padding: 16px 0;">
-            使用上方"边类型"下拉框切换此边的样式
+            使用上方"边类型"下拉框统一切换所有边的样式
           </p>
         </div>
 
@@ -190,7 +190,7 @@
  * GraphDemo —— GraphEditor 组件的 Playground 演示页面
  * 作为组件的使用示例，演示所有功能
  */
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import GraphEditor from '@/components/GraphEditor/GraphEditor.vue'
 import type { NodeData, EdgeData, GraphData } from '@/components/GraphEditor/types/graph'
 import type { StorageAdapter } from '@/components/GraphEditor/types/adapter'
@@ -213,6 +213,33 @@ const edgeCount = ref(2)
 // ==================== localStorage StorageAdapter ====================
 
 const STORAGE_KEY = 'graph-editor-demo-data'
+const PLAYGROUND_STATE_KEY = 'graph-editor-demo-state'
+
+/** Playground UI 状态持久化 */
+interface PlaygroundState {
+  mode: 'edit' | 'display'
+  selectedEdgeType: 'line' | 'quadratic' | 'cubic'
+}
+
+function savePlaygroundState(): void {
+  const state: PlaygroundState = {
+    mode: mode.value,
+    selectedEdgeType: selectedEdgeType.value,
+  }
+  localStorage.setItem(PLAYGROUND_STATE_KEY, JSON.stringify(state))
+}
+
+function loadPlaygroundState(): void {
+  const raw = localStorage.getItem(PLAYGROUND_STATE_KEY)
+  if (!raw) return
+  try {
+    const state = JSON.parse(raw) as PlaygroundState
+    if (state.mode) mode.value = state.mode
+    if (state.selectedEdgeType) selectedEdgeType.value = state.selectedEdgeType
+  } catch {
+    // ignore parse error
+  }
+}
 
 /**
  * localStorage 实现的 StorageAdapter
@@ -529,38 +556,20 @@ function handleClear(): void {
 }
 
 /**
- * 切换选中边的类型
+ * 切换画布上所有边的类型
  */
 function handleChangeEdgeType(): void {
   if (!graphEditorRef.value) return
 
   const data = graphEditorRef.value.getAllData()
 
-  // 如果当前选中了节点，查找连接该节点的边
-  if (isSelectedNode.value && selectedNodeId.value) {
-    const connectedEdges = data.edges.filter(
-      (e) => e.source === selectedNodeId.value || e.target === selectedNodeId.value,
-    )
-    if (connectedEdges.length > 0) {
-      // 更新与该节点相连的第一条边
-      graphEditorRef.value.updateEdge(connectedEdges[0].id, {
-        type: selectedEdgeType.value,
-      })
-      isDirty.value = true
-    }
-    return
-  }
-
-  // 如果选中了边
-  if (isSelectedEdge.value && selectedNodeId.value) {
-    graphEditorRef.value.updateEdge(selectedNodeId.value, {
+  data.edges.forEach((e) => {
+    graphEditorRef.value!.updateEdge(e.id, {
       type: selectedEdgeType.value,
     })
-    isDirty.value = true
-    return
-  }
+  })
 
-  alert('请先点击一条边或一个节点')
+  isDirty.value = true
 }
 
 /**
@@ -579,6 +588,9 @@ function handleDeleteNode(): void {
 // ==================== 初始化数据 ====================
 
 onMounted(() => {
+  // 恢复 Playground UI 状态
+  loadPlaygroundState()
+
   // 检查是否有已保存数据，没有则写入默认数据
   const existing = localStorage.getItem(STORAGE_KEY)
   if (!existing) {
@@ -586,6 +598,10 @@ onMounted(() => {
     console.log('[GraphDemo] 已写入默认演示数据')
   }
 })
+
+// Playground UI 状态变化自动持久化
+watch(mode, savePlaygroundState)
+watch(selectedEdgeType, savePlaygroundState)
 
 onBeforeUnmount(() => {
   // cleanup
