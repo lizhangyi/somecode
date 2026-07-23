@@ -148,6 +148,7 @@ const {
   undo: cmdUndo,
   redo: cmdRedo,
   clearHistory,
+  clearQueue,
   hasPendingChanges,
 } = useCommandManager()
 
@@ -161,6 +162,10 @@ const {
   operationQueue,
   props.storage,
   () => currentVersion.value,
+  () => {
+    clearQueue()
+    currentVersion.value = (currentVersion.value || 0) + 1
+  },
 )
 
 // ==================== State ====================

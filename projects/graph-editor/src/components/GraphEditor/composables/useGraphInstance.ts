@@ -324,7 +324,8 @@ export function useGraphInstance(): UseGraphInstanceReturn {
 
     graph.data({ nodes, edges })
 
-    // 力导向布局
+    // G6 4.x 必须调用 render() 才会实际绘制到画布
+    graph.render()
     graph.layout()
     graph.fitView(30)
 

@@ -45,6 +45,7 @@ export function useGraphSync(
   operationQueue: Ref<Operation[]>,
   storage: StorageAdapter,
   getVersion: () => number | undefined,
+  onSaved: () => void = () => {},
   debounceMs: number = DEFAULT_DEBOUNCE_MS,
 ): UseGraphSyncReturn {
   const isSaving = ref(false)
@@ -81,8 +82,8 @@ export function useGraphSync(
       const version = getVersion()
       await storage.save(ops, version)
       retryCount = 0
-      // 保存成功后清空队列
       operationQueue.value = []
+      onSaved()
     } catch (err: unknown) {
       const error = err as Error & { status?: number; response?: { status?: number } }
       const status = error.status ?? error.response?.status
@@ -141,7 +142,7 @@ export function useGraphSync(
         debouncedSave()
       }
     },
-    { deep: false },
+    { deep: true },
   )
 
   /**
