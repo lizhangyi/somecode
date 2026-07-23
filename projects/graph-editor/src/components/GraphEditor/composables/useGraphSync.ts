@@ -27,7 +27,7 @@ export interface UseGraphSyncReturn {
   /** 上次错误 */
   lastError: Ref<string | null>
   /** 手动触发保存（用于强制立即保存，如 beforeunload） */
-  flush: () => void
+  flush: () => Promise<void>
   /** 取消未执行的保存 */
   cancel: () => void
   /** 冲突回调 —— 409 时触发，外部应重新 load 数据 */
@@ -148,12 +148,12 @@ export function useGraphSync(
   /**
    * 立即执行保存（跳过防抖）
    */
-  function flush(): void {
+  async function flush(): Promise<void> {
     debouncedSave.cancel()
     const ops = [...operationQueue.value]
     if (ops.length > 0) {
       pendingOps = ops
-      doSave(ops)
+      await doSave(ops)
     }
   }
 

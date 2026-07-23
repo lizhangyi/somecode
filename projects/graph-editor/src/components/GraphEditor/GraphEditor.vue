@@ -156,7 +156,6 @@ const {
   isSaving,
   lastError,
   flush,
-  cancel,
   onConflict: conflictCb,
 } = useGraphSync(
   operationQueue,
@@ -826,9 +825,9 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => {
-  // 销毁前尝试刷新保存
-  cancel()
+onBeforeUnmount(async () => {
+  // 销毁前立即保存待处理的操作
+  await flush()
   destroyGraph()
 })
 
