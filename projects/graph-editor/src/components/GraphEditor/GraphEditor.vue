@@ -344,6 +344,28 @@ function bindGraphEvents(graph: Graph): void {
   // 自定义拖拽连线（替代 create-edge behavior，避免与 drag-node 冲突）
   setupCustomEdgeCreation(graph)
 
+  // 节点拖拽结束 —— 写入 fx/fy 防止力导向回弹 + 通过命令系统更新存储
+  graph.on('node:dragend', (evt) => {
+    const { item } = evt
+    if (!item) return
+    const model = item.getModel() as Record<string, unknown>
+
+    // 直接在 model 上写入 fx/fy（避免 updateItem 导致文字重影）
+    model.fx = model.x
+    model.fy = model.y
+
+    // 通过命令系统更新位置，触发 operationQueue → useGraphSync → 存储
+    if (props.mode === 'edit') {
+      const nodeId = model.id as string
+      const x = model.x as number
+      const y = model.y as number
+      if (nodeId && x !== undefined && y !== undefined) {
+        const command = new UpdateNodeCommand(graph, nodeId, { x, y, fx: x, fy: y })
+        execute(command)
+      }
+    }
+  })
+
   // 缩放监听
   graph.on('viewportchange', () => {
     const zoom = graph.getZoom()

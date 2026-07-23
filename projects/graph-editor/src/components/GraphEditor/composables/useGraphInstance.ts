@@ -143,6 +143,53 @@ export function useGraphInstance(): UseGraphInstanceReturn {
         },
 
         /**
+         * 更新节点 —— 在原位更新现有图形，避免重影且不丢失状态
+         */
+        update(cfg, item) {
+          const group = item?.getContainer()
+          if (!group) return
+
+          const model = cfg as Record<string, unknown>
+          const label = (model.label as string) || ''
+          const textWidth = Math.max(label.length * 14 + 24, 80)
+          const rectHeight = 40
+
+          // 更新矩形尺寸
+          const rects = group.findAllByName('node-rect')
+          rects.forEach((rect) => {
+            rect.attr({
+              width: textWidth,
+              height: rectHeight,
+              x: -textWidth / 2,
+              y: -rectHeight / 2,
+            })
+          })
+
+          // 更新文字内容（只改 text，不新建 shape）
+          const texts = group.findAllByName('node-label')
+          texts.forEach((text) => {
+            text.attr('text', label)
+          })
+
+          // 更新锚点位置
+          const anchorPositions = [
+            { name: 'anchor-top', x: 0, y: -rectHeight / 2 },
+            { name: 'anchor-bottom', x: 0, y: rectHeight / 2 },
+            { name: 'anchor-left', x: -textWidth / 2, y: 0 },
+            { name: 'anchor-right', x: textWidth / 2, y: 0 },
+          ]
+
+          anchorPositions.forEach((ap) => {
+            const shapes = group.findAllByName(ap.name)
+            shapes.forEach((shape) => {
+              shape.attr({ x: ap.x, y: ap.y })
+            })
+          })
+
+          return rects[0]
+        },
+
+        /**
          * 处理节点状态变化（hover / selected）
          */
         setState(name, value, item) {
@@ -261,6 +308,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
       defaultEdge,
       modes: {
         default: isEditMode ? editModes : displayModes,
+        display: displayModes,
       },
       layout: layoutConfig,
       animate: true,
@@ -328,25 +376,6 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     graph.render()
     graph.layout()
     graph.fitView(30)
-
-    // 监听节点拖拽结束，写入 fx/fy
-    setupDragEndHandler(graph)
-  }
-
-  /**
-   * 设置节点拖拽结束处理器 —— 自动写入 fx/fy
-   */
-  function setupDragEndHandler(graph: Graph): void {
-    graph.off('node:dragend')
-    graph.on('node:dragend', (evt: { item?: { getModel: () => Record<string, unknown> } }) => {
-      const { item } = evt
-      if (item) {
-        const model = item.getModel()
-        // 直接在 model 上写入 fx/fy，不触发 updateItem（避免重绘导致文字重影）
-        model.fx = model.x
-        model.fy = model.y
-      }
-    })
   }
 
   /**
