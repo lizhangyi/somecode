@@ -30,6 +30,10 @@ const DEFAULT_EDGE_STYLE = {
 
 /** 自定义节点名称 */
 const CUSTOM_NODE_TYPE = 'graph-editor-node'
+const CIRCLE_NODE_TYPE = 'graph-editor-circle-node'
+
+/** 节点形状类型 */
+export type NodeShape = 'rect' | 'circle'
 
 /**
  * useGraphInstance 返回类型
@@ -46,7 +50,7 @@ export interface UseGraphInstanceReturn {
   /** 销毁 G6 实例 */
   destroyGraph: () => void
   /** 渲染图数据 */
-  renderData: (data: GraphData) => void
+  renderData: (data: GraphData, nodeShape?: NodeShape) => void
   /** 获取当前 G6 保存的图数据 */
   getCurrentData: () => GraphData
   /** 适配视图 */
@@ -59,6 +63,7 @@ export interface UseGraphInstanceReturn {
 
 /** 注册标志 */
 let isNodeRegistered = false
+let isCircleNodeRegistered = false
 
 /**
  * G6 实例管理 composable
@@ -236,6 +241,136 @@ export function useGraphInstance(): UseGraphInstanceReturn {
   }
 
   /**
+   * 注册圆形节点（固定大小圆形 + 文字在下方）
+   */
+  function registerCircleNode(): void {
+    if (isCircleNodeRegistered) return
+    isCircleNodeRegistered = true
+
+    const CIRCLE_RADIUS = 25
+    const TEXT_OFFSET = CIRCLE_RADIUS + 8
+
+    G6.registerNode(
+      CIRCLE_NODE_TYPE,
+      {
+        draw(cfg, group) {
+          const model = cfg as Record<string, unknown>
+          const label = (model.label as string) || ''
+          const nodeStyle = (model.style as Record<string, unknown>) || {}
+          const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
+          const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
+
+          // 圆形主体
+          const circle = group.addShape('circle', {
+            attrs: {
+              x: 0,
+              y: 0,
+              r: CIRCLE_RADIUS,
+              fill,
+              stroke,
+              lineWidth: 2,
+              cursor: 'pointer',
+            },
+            name: 'node-circle',
+          })
+
+          // 文字在下方（capture: false 确保拖拽可用）
+          group.addShape('text', {
+            attrs: {
+              x: 0,
+              y: TEXT_OFFSET,
+              text: label,
+              fontSize: 13,
+              fontFamily: 'sans-serif',
+              fill: '#1a1a1a',
+              textAlign: 'center',
+              textBaseline: 'top',
+            },
+            name: 'node-label',
+            capture: false,
+          })
+
+          // 四个锚点圆圈
+          const anchorPositions = [
+            { name: 'anchor-top', x: 0, y: -CIRCLE_RADIUS },
+            { name: 'anchor-bottom', x: 0, y: CIRCLE_RADIUS },
+            { name: 'anchor-left', x: -CIRCLE_RADIUS, y: 0 },
+            { name: 'anchor-right', x: CIRCLE_RADIUS, y: 0 },
+          ]
+
+          anchorPositions.forEach((ap) => {
+            group.addShape('circle', {
+              attrs: {
+                x: ap.x,
+                y: ap.y,
+                r: 5,
+                fill: '#ffffff',
+                stroke: '#4B7BEC',
+                lineWidth: 2,
+                opacity: 0,
+                cursor: 'crosshair',
+              },
+              name: ap.name,
+            })
+          })
+
+          return circle
+        },
+
+        update(cfg, item) {
+          const group = item?.getContainer()
+          if (!group) return
+
+          const model = cfg as Record<string, unknown>
+          const label = (model.label as string) || ''
+
+          // 更新文字
+          const texts = group.findAllByName('node-label')
+          texts.forEach((text) => {
+            text.attr('text', label)
+          })
+
+          return group.findAllByName('node-circle')[0]
+        },
+
+        setState(name, value, item) {
+          const group = item?.getContainer()
+          if (!group) return
+
+          if (name === 'hover') {
+            const top = group.findAllByName('anchor-top')
+            const bottom = group.findAllByName('anchor-bottom')
+            const left = group.findAllByName('anchor-left')
+            const right = group.findAllByName('anchor-right')
+            const allAnchors = [...top, ...bottom, ...left, ...right]
+            allAnchors.forEach((shape) => {
+              shape.attr('opacity', value ? 1 : 0)
+            })
+          }
+
+          if (name === 'selected') {
+            const circles = group.findAllByName('node-circle')
+            if (circles.length > 0) {
+              circles[0].attr('stroke', value ? '#FF6B35' : '#3B6BDB')
+              circles[0].attr('lineWidth', value ? 3 : 2)
+            }
+          }
+        },
+
+        getAnchorPoints() {
+          return [
+            [0.5, 0],
+            [1, 0.5],
+            [0.5, 1],
+            [0, 0.5],
+          ]
+        },
+      },
+      'single-node',
+    )
+  }
+
+  /**
    * 创建 G6 图实例
    */
   function createGraph(
@@ -253,6 +388,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
 
     // 注册自定义节点
     registerCustomNode()
+    registerCircleNode()
 
     const isEditMode = mode === 'edit'
 
@@ -362,12 +498,14 @@ export function useGraphInstance(): UseGraphInstanceReturn {
   /**
    * 渲染图数据到画布
    */
-  function renderData(data: GraphData): void {
+  function renderData(data: GraphData, nodeShape?: NodeShape): void {
     if (!graphInstance.value) return
 
     const graph = graphInstance.value
 
     graph.clear()
+
+    const nodeType = nodeShape === 'circle' ? CIRCLE_NODE_TYPE : CUSTOM_NODE_TYPE
 
     // 转换节点数据
     const nodes = data.nodes.map((node) => {
@@ -378,7 +516,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
         y: node.fy ?? node.y,
         fx: node.fx,
         fy: node.fy,
-        type: CUSTOM_NODE_TYPE,
+        type: nodeType,
         style: node.style || DEFAULT_NODE_STYLE,
         properties: node.properties,
         nodeType: node.type,

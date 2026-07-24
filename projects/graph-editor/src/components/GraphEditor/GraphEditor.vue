@@ -93,6 +93,8 @@ const props = withDefaults(
     showZoomControls?: boolean
     /** 网格大小（0 表示不显示网格） */
     gridSize?: number
+    /** 节点形状：rect 圆角矩形 / circle 圆形 */
+    nodeShape?: 'rect' | 'circle'
   }>(),
   {
     nodeKey: 'id',
@@ -100,6 +102,7 @@ const props = withDefaults(
     showMinimap: true,
     showZoomControls: true,
     gridSize: 20,
+    nodeShape: 'rect',
     layout: () => ({
       type: 'force',
       preventOverlap: true,
@@ -219,7 +222,7 @@ async function initGraph(): Promise<void> {
     bindGraphEvents(graph)
 
     // 渲染数据
-    renderData(data)
+    renderData(data, props.nodeShape)
 
     // 初始化 Minimap
     if (props.showMinimap && minimapRef.value) {
@@ -843,6 +846,15 @@ function forceLayoutExpose(): void {
   })
 }
 
+/**
+ * 切换节点形状（圆形 / 矩形）
+ */
+function setNodeShape(shape: 'rect' | 'circle'): void {
+  if (!graphInstance.value) return
+  const data = getCurrentData()
+  renderData(data, shape)
+}
+
 defineExpose({
   updateNode,
   updateEdge,
@@ -857,9 +869,21 @@ defineExpose({
   clear,
   refresh,
   forceLayout: forceLayoutExpose,
+  setNodeShape,
 })
 
 // ==================== Lifecycle ====================
+
+// 监听节点形状切换，重渲染画布
+watch(
+  () => props.nodeShape,
+  (newShape) => {
+    if (graphReady.value && graphInstance.value) {
+      const data = getCurrentData()
+      renderData(data, newShape)
+    }
+  },
+)
 
 onMounted(async () => {
   await initGraph()

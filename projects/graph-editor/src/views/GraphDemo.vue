@@ -51,6 +51,19 @@
 
         <div class="graph-demo__divider"></div>
 
+        <!-- 节点形状 -->
+        <span class="graph-demo__label">节点形状：</span>
+        <select
+          class="graph-demo__select"
+          v-model="nodeShape"
+          :disabled="mode !== 'edit'"
+        >
+          <option value="rect">矩形</option>
+          <option value="circle">圆形</option>
+        </select>
+
+        <div class="graph-demo__divider"></div>
+
         <!-- 切换所有边的类型 -->
         <span class="graph-demo__label">边类型：</span>
         <select
@@ -74,6 +87,7 @@
           ref="graphEditorRef"
           :mode="mode"
           :storage="storageAdapter"
+          :node-shape="nodeShape"
           :selected-node-id="selectedNodeId"
           @node-click="handleNodeClick"
           @update:selectedNodeId="selectedNodeId = $event"
@@ -206,6 +220,7 @@ const graphEditorRef = ref<InstanceType<typeof GraphEditor>>()
 const mode = ref<'edit' | 'display'>('edit')
 const selectedNodeId = ref<string | null>(null)
 const selectedEdgeType = ref<'line' | 'quadratic' | 'cubic'>('line')
+const nodeShape = ref<'rect' | 'circle'>('rect')
 const exportedImage = ref('')
 const isDirty = ref(false)
 
@@ -222,12 +237,14 @@ const PLAYGROUND_STATE_KEY = 'graph-editor-demo-state'
 interface PlaygroundState {
   mode: 'edit' | 'display'
   selectedEdgeType: 'line' | 'quadratic' | 'cubic'
+  nodeShape: 'rect' | 'circle'
 }
 
 function savePlaygroundState(): void {
   const state: PlaygroundState = {
     mode: mode.value,
     selectedEdgeType: selectedEdgeType.value,
+    nodeShape: nodeShape.value,
   }
   localStorage.setItem(PLAYGROUND_STATE_KEY, JSON.stringify(state))
 }
@@ -239,6 +256,7 @@ function loadPlaygroundState(): void {
     const state = JSON.parse(raw) as PlaygroundState
     if (state.mode) mode.value = state.mode
     if (state.selectedEdgeType) selectedEdgeType.value = state.selectedEdgeType
+    if (state.nodeShape) nodeShape.value = state.nodeShape
   } catch {
     // ignore parse error
   }
@@ -615,6 +633,7 @@ onMounted(() => {
 // Playground UI 状态变化自动持久化
 watch(mode, savePlaygroundState)
 watch(selectedEdgeType, savePlaygroundState)
+watch(nodeShape, savePlaygroundState)
 
 onBeforeUnmount(() => {
   // cleanup
