@@ -53,6 +53,8 @@ export interface UseGraphInstanceReturn {
   fitView: (padding?: number | number[]) => void
   /** 导出图片 */
   exportImage: (config?: { backgroundColor?: string; padding?: number | number[] }) => Promise<string>
+  /** 一键力导向：清除固定位置，重新执行力导向布局 */
+  forceLayout: () => void
 }
 
 /** 注册标志 */
@@ -479,6 +481,43 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     })
   }
 
+  /**
+   * 一键力导向 —— 打散节点后重新执行力导向布局
+   * 注意：此方法不负责持久化位置，调用方应在布局后创建 UpdateNodeCommand
+   */
+  function forceLayout(): void {
+    if (!graphInstance.value) return
+
+    const graph = graphInstance.value
+    const nodes = graph.getNodes()
+    if (nodes.length === 0) return
+
+    const width = graph.getWidth()
+    const height = graph.getHeight()
+
+    // 第一步：清除固定位置，随机打散节点 model 坐标
+    nodes.forEach((node) => {
+      const model = node.getModel()
+      delete model.fx
+      delete model.fy
+      model.x = Math.random() * (width - 200) + 100
+      model.y = Math.random() * (height - 200) + 100
+    })
+
+    // 第二步：运行力导向布局（从随机位置开始计算，结果写入 model）
+    graph.destroyLayout()
+    graph.layout()
+
+    // 第三步：手动把 model 位置同步到画布（layout 只更新了 model，没有触发画布重绘）
+    nodes.forEach((node) => {
+      const model = node.getModel()
+      graph.updateItem(node, { x: model.x as number, y: model.y as number })
+    })
+
+    // 第四步：适配视图
+    graph.fitView(30)
+  }
+
   return {
     graphInstance,
     createGraph,
@@ -487,5 +526,6 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     getCurrentData,
     fitView,
     exportImage,
+    forceLayout,
   }
 }

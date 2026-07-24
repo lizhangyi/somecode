@@ -142,6 +142,7 @@ const {
   getCurrentData,
   fitView,
   exportImage,
+  forceLayout,
 } = useGraphInstance()
 
 const {
@@ -816,6 +817,32 @@ function zoomOut(): void {
   zoomPercent.value = Math.round(graph.getZoom() * 100)
 }
 
+/**
+ * 一键力导向 —— 清除固定位置后重新布局，并通过命令系统持久化新位置
+ */
+function forceLayoutExpose(): void {
+  const graph = graphInstance.value
+  if (!graph || props.mode !== 'edit') return
+
+  // 执行力导向布局（清除 fx/fy → layout → fitView）
+  forceLayout()
+
+  // 布局完成后，为每个节点的位置创建 UpdateNodeCommand（持久化新位置 + 重新固定）
+  graph.getNodes().forEach((node) => {
+    const model = node.getModel() as Record<string, unknown>
+    // 直接写 fx/fy 锁定新位置
+    model.fx = model.x
+    model.fy = model.y
+    const command = new UpdateNodeCommand(graph, model.id as string, {
+      x: model.x as number,
+      y: model.y as number,
+      fx: model.fx as number,
+      fy: model.fy as number,
+    })
+    execute(command)
+  })
+}
+
 defineExpose({
   updateNode,
   updateEdge,
@@ -829,6 +856,7 @@ defineExpose({
   redo,
   clear,
   refresh,
+  forceLayout: forceLayoutExpose,
 })
 
 // ==================== Lifecycle ====================

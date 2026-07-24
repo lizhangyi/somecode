@@ -39,6 +39,9 @@
         <button class="graph-demo__btn" @click="handleFitView">
           居中
         </button>
+        <button class="graph-demo__btn" @click="handleForceLayout" :disabled="mode !== 'edit'">
+          力导向
+        </button>
         <button class="graph-demo__btn" @click="handleExportImage">
           导出截图
         </button>
@@ -525,6 +528,16 @@ function handleRedo(): void {
  */
 function handleFitView(): void {
   graphEditorRef.value?.fitView()
+}
+
+/**
+ * 一键力导向 —— 重新执行力导向布局
+ */
+function handleForceLayout(): void {
+  const editor = graphEditorRef.value
+  if (!editor) return
+  editor.forceLayout()
+  isDirty.value = true
 }
 
 /**
