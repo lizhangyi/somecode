@@ -304,12 +304,26 @@ function bindGraphEvents(graph: Graph): void {
     })
   })
 
-  // 画布空白区域点击 —— 取消选中
-  graph.on('canvas:click', () => {
+  // 清除所有选中状态（G6 视觉态 + 父组件 selectedNodeId）
+  function clearSelection(): void {
     emit('update:selectedNodeId', null)
-    graph.getNodes().forEach((node: { getModel: () => Record<string, unknown> }) => {
-      graph.setItemState(node as Parameters<Graph['setItemState']>[0], 'selected', false)
+    graph.findAllByState('node', 'selected').forEach((n: { getModel: () => Record<string, unknown> }) => {
+      graph.setItemState(n as unknown as Parameters<Graph['setItemState']>[0], 'selected', false)
     })
+    graph.findAllByState('edge', 'selected').forEach((e: { getModel: () => Record<string, unknown> }) => {
+      graph.setItemState(e as unknown as Parameters<Graph['setItemState']>[0], 'selected', false)
+    })
+  }
+
+  // 方案 A：canvas:click 仅在点击空白（非节点/边）时触发，直接清除选中
+  graph.on('canvas:click', () => {
+    clearSelection()
+  })
+
+  // 方案 B：通用 click 兜底（drag-canvas 等行为可能吞掉 canvas:click）。
+  // 当 evt.item 为空 => 点击空白，清除选中；点中节点/边时 evt.item 有值，不清除。
+  graph.on('click', (evt: { item?: unknown }) => {
+    if (!evt.item) clearSelection()
   })
 
   // 创建边事件（拖拽连线）
