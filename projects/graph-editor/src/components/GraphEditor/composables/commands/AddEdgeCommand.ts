@@ -23,7 +23,7 @@ export class AddEdgeCommand implements ICommand {
       source: this.edge.source,
       target: this.edge.target,
       type: this.edge.type || 'line',
-      label: this.edge.label || '',
+      label: this.edge.label || undefined,
     })
   }
 

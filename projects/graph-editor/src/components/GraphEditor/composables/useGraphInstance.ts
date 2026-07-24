@@ -416,6 +416,11 @@ export function useGraphInstance(): UseGraphInstanceReturn {
         style: {
           fill: '#666',
           fontSize: 11,
+          background: {
+            fill: '#ffffff',
+            padding: [2, 4, 2, 4],
+            radius: 2,
+          },
         },
       },
     }
@@ -529,7 +534,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        label: edge.label,
+        label: edge.label || undefined,
         type: edge.type || 'line',
         style: edge.style || DEFAULT_EDGE_STYLE,
       }
