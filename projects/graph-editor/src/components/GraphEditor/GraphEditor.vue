@@ -381,10 +381,33 @@ function bindGraphEvents(graph: Graph): void {
     }
   })
 
-  // 缩放监听
+  // 缩放监听 + 网格跟随
   graph.on('viewportchange', () => {
     const zoom = graph.getZoom()
     zoomPercent.value = Math.round(zoom * 100)
+
+    // 同步网格 overlay：网格 div 始终 100% 铺满容器（不会露白边）。
+    // 平移用 background-position 体现（仅保留一个周期内位移），缩放用背景周期 gridSize*zoom 体现。
+    // group 矩阵为 [a,0,0, 0,d,0, e,f,1]，a=d=zoom，e/f 为画布平移（像素）。
+    const container = graph.get('container') as HTMLElement
+    if (container && props.gridSize > 0) {
+      const gridEl = container.querySelector('.g6-grid-overlay') as HTMLElement
+      if (gridEl) {
+        const matrix = (graph.getGroup().getMatrix() || [1, 0, 0, 0, 1, 0, 0, 0, 1]) as number[]
+        const zoomM = matrix[0]
+        const tx = matrix[6]
+        const ty = matrix[7]
+        const p = props.gridSize * zoomM
+        gridEl.style.backgroundImage = [
+          `repeating-linear-gradient(0deg, transparent, transparent ${p - 1}px, rgba(136,136,136,0.18) ${p - 1}px, rgba(136,136,136,0.18) ${p}px)`,
+          `repeating-linear-gradient(90deg, transparent, transparent ${p - 1}px, rgba(136,136,136,0.18) ${p - 1}px, rgba(136,136,136,0.18) ${p}px)`,
+        ].join(',')
+        // 偏移取模一个周期：网格可无限重复，方向与画布平移一致（tx 增大 → 网格右移）
+        const ox = ((tx % p) + p) % p
+        const oy = ((ty % p) + p) % p
+        gridEl.style.backgroundPosition = `${ox}px ${oy}px`
+      }
+    }
   })
 }
 
