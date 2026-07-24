@@ -459,7 +459,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
       },
       layout: layoutConfig,
       animate: true,
-      fitView: true,
+      fitView: false,
       fitViewPadding: 30,
       minZoom: 0.2,
       maxZoom: 5,
@@ -545,7 +545,6 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     // G6 4.x 必须调用 render() 才会实际绘制到画布
     graph.render()
     graph.layout()
-    graph.fitView(30)
   }
 
   /**
