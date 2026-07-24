@@ -741,6 +741,7 @@ function addNode(data: Partial<NodeData> & { id?: string }): string {
 
   const command = new AddNodeCommand(graph, nodeData)
   execute(command)
+  isEmpty.value = false
   return nodeData.id
 }
 
@@ -762,6 +763,7 @@ function addEdge(data: Partial<EdgeData> & { source: string; target: string }): 
 
   const command = new AddEdgeCommand(graph, edgeData)
   execute(command)
+  isEmpty.value = false
   return edgeData.id
 }
 
@@ -796,7 +798,7 @@ function redo(): void {
 /**
  * 清空画布
  */
-function clear(): void {
+async function clear(): Promise<void> {
   const graph = graphInstance.value
   if (!graph) return
 
@@ -813,6 +815,9 @@ function clear(): void {
     const command = new DeleteNodeCommand(graph, n.id)
     execute(command)
   })
+
+  // 立即持久化删除操作（必须 await，确保保存完成后再清历史）
+  await flush()
 
   clearHistory()
   isEmpty.value = true

@@ -578,9 +578,9 @@ async function handleExportImage(): Promise<void> {
 /**
  * 清空画布
  */
-function handleClear(): void {
+async function handleClear(): Promise<void> {
   if (!confirm('确定要清空画布吗？此操作不可撤销。')) return
-  graphEditorRef.value?.clear()
+  await graphEditorRef.value?.clear()
   nodeCount.value = 0
   edgeCount.value = 0
   isDirty.value = true
