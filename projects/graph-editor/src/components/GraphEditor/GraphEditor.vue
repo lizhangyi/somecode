@@ -91,12 +91,15 @@ const props = withDefaults(
     showMinimap?: boolean
     /** 是否显示缩放控件 */
     showZoomControls?: boolean
+    /** 网格大小（0 表示不显示网格） */
+    gridSize?: number
   }>(),
   {
     nodeKey: 'id',
     selectedNodeId: null,
     showMinimap: true,
     showZoomControls: true,
+    gridSize: 20,
     layout: () => ({
       type: 'force',
       preventOverlap: true,
@@ -208,7 +211,7 @@ async function initGraph(): Promise<void> {
       canvasWrapperRef.value,
       rect.width,
       rect.height,
-      { mode: props.mode, layout: props.layout },
+      { mode: props.mode, layout: props.layout, gridSize: props.gridSize },
     )
 
     // 绑定事件
@@ -343,11 +346,20 @@ function bindGraphEvents(graph: Graph): void {
   // 自定义拖拽连线（替代 create-edge behavior，避免与 drag-node 冲突）
   setupCustomEdgeCreation(graph)
 
-  // 节点拖拽结束 —— 写入 fx/fy 防止力导向回弹 + 通过命令系统更新存储
+  // 节点拖拽结束 —— 写入 fx/fy 防止力导向回弹 + 吸附网格 + 通过命令系统更新存储
   graph.on('node:dragend', (evt) => {
     const { item } = evt
     if (!item) return
     const model = item.getModel() as Record<string, unknown>
+
+    // 吸附到网格
+    const gs = props.gridSize ?? 0
+    if (gs > 0) {
+      const snappedX = Math.round((model.x as number) / gs) * gs
+      const snappedY = Math.round((model.y as number) / gs) * gs
+      model.x = snappedX
+      model.y = snappedY
+    }
 
     // 直接在 model 上写入 fx/fy（避免 updateItem 导致文字重影）
     model.fx = model.x
@@ -668,13 +680,19 @@ function addNode(data: Partial<NodeData> & { id?: string }): string {
   const graph = graphInstance.value
   if (!graph) return ''
 
+  const gs = props.gridSize ?? 0
+  const snap = (v: number | undefined): number | undefined => {
+    if (v === undefined || gs <= 0) return v
+    return Math.round(v / gs) * gs
+  }
+
   const nodeData: NodeData = {
     id: data.id || generateId('node'),
     label: data.label || '新节点',
-    x: data.x,
-    y: data.y,
-    fx: data.fx,
-    fy: data.fy,
+    x: snap(data.x),
+    y: snap(data.y),
+    fx: snap(data.fx),
+    fy: snap(data.fy),
     properties: data.properties || {},
     style: data.style,
     type: data.type,

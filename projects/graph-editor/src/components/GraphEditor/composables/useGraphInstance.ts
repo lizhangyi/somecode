@@ -8,6 +8,9 @@ import { ref, type Ref } from 'vue'
 import G6, { type Graph } from '@antv/g6'
 import type { GraphData, NodeData, EdgeData } from '../types/graph'
 
+/** 网格 overlay 的 CSS 类名 */
+const GRID_CLASS = 'g6-grid-overlay'
+
 /** 节点默认样式 */
 const DEFAULT_NODE_STYLE = {
   fill: '#4B7BEC',
@@ -38,6 +41,7 @@ export interface UseGraphInstanceReturn {
   createGraph: (container: HTMLDivElement, width: number, height: number, options?: {
     mode?: 'edit' | 'display'
     layout?: Record<string, unknown>
+    gridSize?: number
   }) => Graph
   /** 销毁 G6 实例 */
   destroyGraph: () => void
@@ -236,9 +240,9 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     container: HTMLDivElement,
     width: number,
     height: number,
-    options: { mode?: 'edit' | 'display'; layout?: Record<string, unknown> } = {},
+    options: { mode?: 'edit' | 'display'; layout?: Record<string, unknown>; gridSize?: number } = {},
   ): Graph {
-    const { mode = 'edit', layout: customLayout } = options
+    const { mode = 'edit', layout: customLayout, gridSize = 20 } = options
 
     if (graphInstance.value) {
       graphInstance.value.destroy()
@@ -319,6 +323,21 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     })
 
     graphInstance.value = graph
+
+    // 添加网格背景（用 CSS repeating-linear-gradient，插入 canvas 下方）
+    if (gridSize > 0) {
+      const gridEl = document.createElement('div')
+      gridEl.className = GRID_CLASS
+      gridEl.style.cssText = [
+        'position:absolute;top:0;left:0;width:100%;height:100%;',
+        'pointer-events:none;z-index:0;',
+        `background-image:`,
+        `  repeating-linear-gradient(0deg, transparent, transparent ${gridSize - 1}px, rgba(136,136,136,0.18) ${gridSize - 1}px, rgba(136,136,136,0.18) ${gridSize}px),`,
+        `  repeating-linear-gradient(90deg, transparent, transparent ${gridSize - 1}px, rgba(136,136,136,0.18) ${gridSize - 1}px, rgba(136,136,136,0.18) ${gridSize}px);`,
+      ].join('\n')
+      container.insertBefore(gridEl, container.firstChild)
+    }
+
     return graph
   }
 
@@ -327,6 +346,12 @@ export function useGraphInstance(): UseGraphInstanceReturn {
    */
   function destroyGraph(): void {
     if (graphInstance.value) {
+      // 清理网格 overlay
+      const container = graphInstance.value.get('container') as HTMLElement
+      if (container) {
+        const gridEl = container.querySelector(`.${GRID_CLASS}`)
+        if (gridEl) gridEl.remove()
+      }
       graphInstance.value.destroy()
       graphInstance.value = null
     }
