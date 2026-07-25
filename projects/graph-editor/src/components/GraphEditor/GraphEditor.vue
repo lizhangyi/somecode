@@ -70,7 +70,7 @@ import {
   ReverseEdgeCommand,
 } from './composables/commands'
 import { useGraphSync } from './composables/useGraphSync'
-import { RECT_NODE_TYPE, CIRCLE_NODE_TYPE } from './composables/graphConfig'
+import { RECT_NODE_TYPE, CIRCLE_NODE_TYPE, DEFAULT_EDGE_STYLE } from './composables/graphConfig'
 import { generateId } from './utils/idGenerator'
 import type { NodeData, EdgeData, GraphData, EdgeType } from './types/graph'
 import type { StorageAdapter } from './types/adapter'
@@ -124,8 +124,8 @@ const props = withDefaults(
 // ==================== Emits ====================
 
 const emit = defineEmits<{
-  /** 节点点击 */
-  nodeClick: [data: NodeData]
+  /** 节点点击（shift 表示是否为 Shift 多选点击，用于外壳维护点击顺序以定边方向） */
+  nodeClick: [data: NodeData, shift: boolean]
   /** 选中节点 ID 更新（用于 v-model，仅单选时回填，多选时为 null） */
   'update:selectedNodeId': [id: string | null]
   /** 选择集合变化（节点 + 边 id 列表），用于外壳批量操作 UI */
@@ -322,7 +322,7 @@ function bindGraphEvents(graph: Graph): void {
       properties: (model.properties as Record<string, unknown>) || {},
     }
 
-    emit('nodeClick', nodeData)
+    emit('nodeClick', nodeData, getShiftKey(evt))
 
     // 编辑模式：处理多选（Shift 切换）与单选
     if (props.mode === 'edit') {
@@ -608,25 +608,9 @@ function setupCustomEdgeCreation(graph: Graph): void {
     if (hitNode) {
       const targetId = (hitNode.getModel() as Record<string, unknown>).id as string
       if (targetId && targetId !== sourceNodeId) {
-        // 检查是否已存在相同方向的边
-        const allEdges = graph.getEdges()
-        const dup = allEdges.some((e: { getModel: () => Record<string, unknown> }) => {
-          const m = e.getModel()
-          return (m.source === sourceNodeId && m.target === targetId)
-            || (m.source === targetId && m.target === sourceNodeId)
-        })
-        if (!dup) {
-          const edgeData: EdgeData = {
-            id: generateId('edge'),
-            source: sourceNodeId,
-            target: targetId,
-            type: 'line',
-            label: '',
-          }
-          const command = new AddEdgeCommand(graph, edgeData)
-          execute(command)
-          emit('dataChange', operationQueue.value, currentVersion.value)
-        }
+        // 统一走 addEdge：同方向不重复、反向则转双向箭头
+        const newId = addEdge({ source: sourceNodeId, target: targetId, type: 'line', label: '' })
+        if (newId) emit('dataChange', operationQueue.value, currentVersion.value)
       }
     }
     sourceNodeId = ''
@@ -901,15 +885,37 @@ function addNode(data: Partial<NodeData> & { id?: string }): string {
 
 /**
  * 添加边
+ * - 同方向边已存在：不重复添加（两点之间同方向只允许一条）
+ * - 反向边已存在：不新增，而是把已有反向边改为双向箭头（加 startArrow）
+ * - 否则：新增一条边
+ * 返回：新边 id / 已有同方向边 id / 转为双向的反向边 id；若没有任何改动（同方向已存在且无转换）返回 ''
  */
 function addEdge(data: Partial<EdgeData> & { source: string; target: string }): string {
   const graph = graphInstance.value
   if (!graph) return ''
 
+  const source = data.source
+  const target = data.target
+
+  const edges = getCurrentData().edges
+
+  // 同方向边已存在 → 不重复添加（无任何改动）
+  const sameDir = edges.find((e) => e.source === source && e.target === target)
+  if (sameDir) return ''
+
+  // 反向边已存在 → 改为双向箭头（加 startArrow），不新增边
+  const reverse = edges.find((e) => e.source === target && e.target === source)
+  if (reverse) {
+    const stroke = (reverse.style?.stroke as string) || DEFAULT_EDGE_STYLE.stroke
+    const startArrow = { path: DEFAULT_EDGE_STYLE.endArrow.path as string, fill: stroke }
+    updateEdge(reverse.id, { style: { ...(reverse.style || {}), startArrow } })
+    return reverse.id
+  }
+
   const edgeData: EdgeData = {
     id: data.id || generateId('edge'),
-    source: data.source,
-    target: data.target,
+    source,
+    target,
     type: data.type || 'line',
     label: data.label || '',
     style: data.style,

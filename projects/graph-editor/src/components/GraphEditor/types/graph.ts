@@ -20,6 +20,7 @@ export interface EdgeStyle {
   lineWidth?: number
   lineDash?: number[]
   endArrow?: boolean | { path: string }
+  startArrow?: boolean | { path: string }
   [key: string]: unknown
 }
 
