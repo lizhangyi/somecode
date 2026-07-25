@@ -76,6 +76,20 @@
           <option value="quadratic">二次贝塞尔</option>
           <option value="cubic">三次贝塞尔</option>
         </select>
+
+        <div class="graph-demo__divider"></div>
+
+        <!-- 节点搜索定位 -->
+        <span class="graph-demo__label">搜索：</span>
+        <input
+          class="graph-demo__search"
+          type="text"
+          v-model="searchKeyword"
+          placeholder="输入节点名称"
+        />
+        <span class="graph-demo__search-count" v-if="searchKeyword.trim()">
+          {{ searchResultCount }} 个匹配
+        </span>
       </div>
     </header>
 
@@ -253,6 +267,15 @@ const selectedEdgeType = ref<'line' | 'quadratic' | 'cubic'>('line')
 const nodeShape = ref<'rect' | 'circle'>('rect')
 const exportedImage = ref('')
 const isDirty = ref(false)
+
+// 节点搜索
+const searchKeyword = ref('')
+const searchResultCount = ref(0)
+
+watch(searchKeyword, (kw) => {
+  if (!graphEditorRef.value) return
+  searchResultCount.value = graphEditorRef.value.searchNode(kw)
+})
 
 // 节点数统计
 const nodeCount = ref(3)
@@ -969,6 +992,26 @@ onBeforeUnmount(() => {
       width: 100%;
       cursor: pointer;
     }
+  }
+
+  &__search {
+    width: 160px;
+    padding: 7px 10px;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+
+    &:focus {
+      border-color: #4B7BEC;
+      box-shadow: 0 0 0 2px rgba(75, 123, 236, 0.1);
+    }
+  }
+
+  &__search-count {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
   }
 
   &__prop-row {

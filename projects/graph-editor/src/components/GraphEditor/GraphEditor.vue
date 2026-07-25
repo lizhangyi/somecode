@@ -897,6 +897,40 @@ function setNodeShape(shape: 'rect' | 'circle'): void {
   renderData(data, shape)
 }
 
+/**
+ * 搜索节点：按标签模糊匹配，高亮命中节点并居中到第一个匹配项
+ * @param keyword 搜索关键字
+ * @returns 匹配到的节点数量
+ */
+function searchNode(keyword: string): number {
+  const graph = graphInstance.value
+  if (!graph) return 0
+
+  // 清除上一次的高亮
+  graph.getNodes().forEach((n) => {
+    graph.setItemState(n, 'search-highlight', false)
+  })
+
+  const kw = (keyword || '').trim().toLowerCase()
+  if (!kw) return 0
+
+  const matched = graph.getNodes().filter((n) => {
+    const model = n.getModel() as Record<string, unknown>
+    const label = (model.label as string) || ''
+    return label.toLowerCase().includes(kw)
+  })
+
+  matched.forEach((n) => {
+    graph.setItemState(n, 'search-highlight', true)
+  })
+
+  if (matched.length > 0) {
+    graph.focusItem(matched[0], true)
+  }
+
+  return matched.length
+}
+
 defineExpose({
   updateNode,
   updateEdge,
@@ -912,6 +946,7 @@ defineExpose({
   refresh,
   forceLayout: forceLayoutExpose,
   setNodeShape,
+  searchNode,
 })
 
 // ==================== Lifecycle ====================

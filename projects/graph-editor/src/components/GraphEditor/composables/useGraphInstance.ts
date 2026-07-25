@@ -229,6 +229,14 @@ export function useGraphInstance(): UseGraphInstanceReturn {
               rects[0].attr('lineWidth', value ? 3 : 2)
             }
           }
+
+          if (name === 'search-highlight') {
+            const rects = group.findAllByName('node-rect')
+            if (rects.length > 0) {
+              rects[0].attr('shadowColor', value ? '#FFB400' : 'transparent')
+              rects[0].attr('shadowBlur', value ? 14 : 0)
+            }
+          }
         },
 
         getAnchorPoints() {
@@ -386,6 +394,14 @@ export function useGraphInstance(): UseGraphInstanceReturn {
               const baseStroke = (style.stroke as string) || DEFAULT_NODE_STYLE.stroke
               circles[0].attr('stroke', value ? '#FF6B35' : baseStroke)
               circles[0].attr('lineWidth', value ? 3 : 2)
+            }
+          }
+
+          if (name === 'search-highlight') {
+            const circles = group.findAllByName('node-circle')
+            if (circles.length > 0) {
+              circles[0].attr('shadowColor', value ? '#FFB400' : 'transparent')
+              circles[0].attr('shadowBlur', value ? 14 : 0)
             }
           }
         },
