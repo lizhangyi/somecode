@@ -68,6 +68,7 @@ import {
   CompositeCommand,
 } from './composables/commands'
 import { useGraphSync } from './composables/useGraphSync'
+import { RECT_NODE_TYPE, CIRCLE_NODE_TYPE } from './composables/graphConfig'
 import { generateId } from './utils/idGenerator'
 import type { NodeData, EdgeData, GraphData, EdgeType } from './types/graph'
 import type { StorageAdapter } from './types/adapter'
@@ -737,7 +738,7 @@ function addNode(data: Partial<NodeData> & { id?: string }): string {
     fy: snap(data.fy),
     properties: data.properties || {},
     style: data.style,
-    type: data.type,
+    type: data.type || (props.nodeShape === 'circle' ? CIRCLE_NODE_TYPE : RECT_NODE_TYPE),
   }
 
   const command = new AddNodeCommand(graph, nodeData)

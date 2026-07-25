@@ -5,6 +5,7 @@ import type { Graph } from '@antv/g6'
 import { cloneDeep } from 'lodash-es'
 import type { ICommand, Operation } from '../../types/operations'
 import type { NodeData } from '../../types/graph'
+import { RECT_NODE_TYPE } from '../graphConfig'
 
 export class AddNodeCommand implements ICommand {
   description: string
@@ -25,7 +26,7 @@ export class AddNodeCommand implements ICommand {
       y: this.node.y ?? 200 + Math.random() * 200,
       fx: this.node.fx,
       fy: this.node.fy,
-      type: 'graph-editor-node',
+      type: this.node.type || RECT_NODE_TYPE,
       style: this.node.style,
       properties: this.node.properties,
     })

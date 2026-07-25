@@ -4,6 +4,7 @@
 import type { Graph } from '@antv/g6'
 import type { ICommand, Operation } from '../../types/operations'
 import type { NodeData, EdgeData } from '../../types/graph'
+import { RECT_NODE_TYPE } from '../graphConfig'
 
 export class DeleteNodeCommand implements ICommand {
   description: string
@@ -30,6 +31,7 @@ export class DeleteNodeCommand implements ICommand {
         fx: (model.fx ?? model.x) as number | undefined,
         fy: (model.fy ?? model.y) as number | undefined,
         properties: (model.properties as Record<string, unknown>) || {},
+        type: (model.type as string) || RECT_NODE_TYPE,
       }
     }
 
@@ -66,7 +68,7 @@ export class DeleteNodeCommand implements ICommand {
         y: this.snapshot.y,
         fx: this.snapshot.fx,
         fy: this.snapshot.fy,
-        type: 'graph-editor-node',
+        type: this.snapshot.type || RECT_NODE_TYPE,
         properties: this.snapshot.properties,
       })
     }

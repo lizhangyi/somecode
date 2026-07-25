@@ -1,39 +1,33 @@
 /**
- * useGraphInstance —— G6 实例管理
- * 封装 G6 实例创建、销毁、基础渲染（纯 UI 层，不处理业务逻辑）
+ * useGraphInstance —— G6 实例管理（编排层）
+ * 仅负责 G6 实例的创建 / 销毁 / 渲染 / 数据读取 / 视图工具，
+ * 具体关注点已分离：
+ *  - graphConfig.ts      共享常量与默认配置
+ *  - gridOverlay.ts      网格背景创建 / 移除
+ *  - registerGraphNodes.ts 节点注册（矩形 / 圆形，基于内置 rect / circle 增强）
  * @module composables/useGraphInstance
  */
 
 import { ref, type Ref } from 'vue'
 import G6, { type Graph } from '@antv/g6'
 import type { GraphData, NodeData, EdgeData } from '../types/graph'
+import {
+  RECT_NODE_TYPE,
+  CIRCLE_NODE_TYPE,
+  DEFAULT_NODE_STYLE,
+  DEFAULT_EDGE_STYLE,
+  DEFAULT_LAYOUT,
+  DEFAULT_NODE,
+  DEFAULT_EDGE,
+  EDGE_STATE_STYLES,
+  EDIT_MODES,
+  DISPLAY_MODES,
+  type NodeShape,
+} from './graphConfig'
+import { createGridOverlay, removeGridOverlay } from './gridOverlay'
+import { registerRectNode, registerCircleNode } from './registerGraphNodes'
 
-/** 网格 overlay 的 CSS 类名 */
-const GRID_CLASS = 'g6-grid-overlay'
-
-/** 节点默认样式 */
-const DEFAULT_NODE_STYLE = {
-  fill: '#4B7BEC',
-  stroke: '#3B6BDB',
-  lineWidth: 1,
-}
-
-/** 边默认样式 */
-const DEFAULT_EDGE_STYLE = {
-  stroke: '#A3B1C6',
-  lineWidth: 1.5,
-  endArrow: {
-    path: G6.Arrow.triangle(6, 8, 0),
-    fill: '#A3B1C6',
-  },
-}
-
-/** 自定义节点名称 */
-const CUSTOM_NODE_TYPE = 'graph-editor-node'
-const CIRCLE_NODE_TYPE = 'graph-editor-circle-node'
-
-/** 节点形状类型 */
-export type NodeShape = 'rect' | 'circle'
+export type { NodeShape } from './graphConfig'
 
 /**
  * useGraphInstance 返回类型
@@ -61,397 +55,11 @@ export interface UseGraphInstanceReturn {
   forceLayout: () => void
 }
 
-/** 注册标志 */
-let isNodeRegistered = false
-let isCircleNodeRegistered = false
-
 /**
  * G6 实例管理 composable
  */
 export function useGraphInstance(): UseGraphInstanceReturn {
   const graphInstance = ref<Graph | null>(null) as Ref<Graph | null>
-
-  /**
-   * 注册自定义节点（圆角矩形 + 文字标签）
-   */
-  function registerCustomNode(): void {
-    if (isNodeRegistered) return
-    isNodeRegistered = true
-
-    G6.registerNode(
-      CUSTOM_NODE_TYPE,
-      {
-        draw(cfg, group) {
-          const model = cfg as Record<string, unknown>
-          const label = (model.label as string) || ''
-          const nodeStyle = (model.style as Record<string, unknown>) || {}
-          const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
-          const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
-
-          // 节点尺寸：size 控制矩形高度，宽度取文字宽与高度较大者（避免过窄）
-          const rectHeight = (nodeStyle.size as number) || 40
-          const textWidth = Math.max(label.length * 14 + 24, rectHeight)
-          const rectWidth = textWidth
-          const radius = 8
-
-          // 圆角矩形
-          const rect = group.addShape('rect', {
-            attrs: {
-              x: -rectWidth / 2,
-              y: -rectHeight / 2,
-              width: rectWidth,
-              height: rectHeight,
-              radius,
-              fill,
-              stroke,
-              lineWidth: 2,
-              cursor: 'pointer',
-            },
-            name: 'node-rect',
-          })
-
-          // 文字（capture: false 让鼠标事件穿透到下层矩形，确保拖拽可用）
-          group.addShape('text', {
-            attrs: {
-              x: 0,
-              y: 0,
-              text: label,
-              fontSize: 13,
-              fontFamily: 'sans-serif',
-              fill: '#ffffff',
-              textAlign: 'center',
-              textBaseline: 'middle',
-            },
-            name: 'node-label',
-            capture: false,
-          })
-
-          // 四个锚点圆圈（初始隐藏，悬浮时显示）
-          const anchorPositions = [
-            { name: 'anchor-top', x: 0, y: -rectHeight / 2 },
-            { name: 'anchor-bottom', x: 0, y: rectHeight / 2 },
-            { name: 'anchor-left', x: -rectWidth / 2, y: 0 },
-            { name: 'anchor-right', x: rectWidth / 2, y: 0 },
-          ]
-
-          anchorPositions.forEach((ap) => {
-            group.addShape('circle', {
-              attrs: {
-                x: ap.x,
-                y: ap.y,
-                r: 5,
-                fill: '#ffffff',
-                stroke: '#4B7BEC',
-                lineWidth: 2,
-                opacity: 0,
-                cursor: 'crosshair',
-              },
-              name: ap.name,
-            })
-          })
-
-          return rect
-        },
-
-        /**
-         * 更新节点 —— 在原位更新现有图形，避免重影且不丢失状态
-         */
-        update(cfg, item) {
-          const group = item?.getContainer()
-          if (!group) return
-
-          const model = cfg as Record<string, unknown>
-          const nodeStyle = (model.style as Record<string, unknown>) || {}
-          const label = (model.label as string) || ''
-          const rectHeight = (nodeStyle.size as number) || 40
-          const textWidth = Math.max(label.length * 14 + 24, rectHeight)
-          const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
-          const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
-          const selected = item?.hasState?.('selected') || false
-
-          // 更新矩形尺寸与颜色
-          const rects = group.findAllByName('node-rect')
-          rects.forEach((rect) => {
-            rect.attr({
-              width: textWidth,
-              height: rectHeight,
-              x: -textWidth / 2,
-              y: -rectHeight / 2,
-              fill,
-            })
-            // 选中态下保留橙色边框，不覆盖用户自定义描边
-            if (!selected) {
-              rect.attr({ stroke, lineWidth: 1 })
-            }
-          })
-
-          // 更新文字内容（只改 text，不新建 shape）
-          const texts = group.findAllByName('node-label')
-          texts.forEach((text) => {
-            text.attr('text', label)
-          })
-
-          // 更新锚点位置
-          const anchorPositions = [
-            { name: 'anchor-top', x: 0, y: -rectHeight / 2 },
-            { name: 'anchor-bottom', x: 0, y: rectHeight / 2 },
-            { name: 'anchor-left', x: -textWidth / 2, y: 0 },
-            { name: 'anchor-right', x: textWidth / 2, y: 0 },
-          ]
-
-          anchorPositions.forEach((ap) => {
-            const shapes = group.findAllByName(ap.name)
-            shapes.forEach((shape) => {
-              shape.attr({ x: ap.x, y: ap.y })
-            })
-          })
-
-          return rects[0]
-        },
-
-        /**
-         * 处理节点状态变化（hover / selected）
-         */
-        setState(name, value, item) {
-          const group = item?.getContainer()
-          if (!group) return
-
-          if (name === 'hover') {
-            const top = group.findAllByName('anchor-top')
-            const bottom = group.findAllByName('anchor-bottom')
-            const left = group.findAllByName('anchor-left')
-            const right = group.findAllByName('anchor-right')
-            const allAnchors = [...top, ...bottom, ...left, ...right]
-            allAnchors.forEach((shape) => {
-              shape.attr('opacity', value ? 1 : 0)
-            })
-          }
-
-          if (name === 'selected') {
-            const rects = group.findAllByName('node-rect')
-            if (rects.length > 0) {
-              const model = item?.getModel() as Record<string, unknown>
-              const style = (model.style as Record<string, unknown>) || {}
-              const baseStroke = (style.stroke as string) || DEFAULT_NODE_STYLE.stroke
-              rects[0].attr('stroke', value ? '#FF6B35' : baseStroke)
-              rects[0].attr('lineWidth', value ? 3 : 2)
-            }
-          }
-
-          if (name === 'search-highlight') {
-            const rects = group.findAllByName('node-rect')
-            if (rects.length > 0) {
-              rects[0].attr('shadowColor', value ? '#FFB400' : 'transparent')
-              rects[0].attr('shadowBlur', value ? 14 : 0)
-            }
-          }
-
-          if (name === 'path-highlight') {
-            const rects = group.findAllByName('node-rect')
-            if (rects.length > 0) {
-              rects[0].attr('shadowColor', value ? '#22C55E' : 'transparent')
-              rects[0].attr('shadowBlur', value ? 16 : 0)
-              rects[0].attr('lineWidth', value ? 3 : 1)
-            }
-          }
-        },
-
-        getAnchorPoints() {
-          return [
-            [0.5, 0],
-            [1, 0.5],
-            [0.5, 1],
-            [0, 0.5],
-          ]
-        },
-      },
-      'single-node',
-    )
-  }
-
-  /**
-   * 注册圆形节点（固定大小圆形 + 文字在下方）
-   */
-  function registerCircleNode(): void {
-    if (isCircleNodeRegistered) return
-    isCircleNodeRegistered = true
-
-    // 圆形半径 / 文字偏移由 node.style.size 动态计算（见 draw / update）
-
-    G6.registerNode(
-      CIRCLE_NODE_TYPE,
-      {
-        draw(cfg, group) {
-          const model = cfg as Record<string, unknown>
-          const label = (model.label as string) || ''
-          const nodeStyle = (model.style as Record<string, unknown>) || {}
-          const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
-          const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
-
-          // 节点尺寸：size 控制圆形直径
-          const radius = ((nodeStyle.size as number) || 50) / 2
-          const textOffset = radius + 8
-
-          // 圆形主体
-          const circle = group.addShape('circle', {
-            attrs: {
-              x: 0,
-              y: 0,
-              r: radius,
-              fill,
-              stroke,
-              lineWidth: 2,
-              cursor: 'pointer',
-            },
-            name: 'node-circle',
-          })
-
-          // 文字在下方（capture: false 确保拖拽可用）
-          group.addShape('text', {
-            attrs: {
-              x: 0,
-              y: textOffset,
-              text: label,
-              fontSize: 13,
-              fontFamily: 'sans-serif',
-              fill: '#1a1a1a',
-              textAlign: 'center',
-              textBaseline: 'top',
-            },
-            name: 'node-label',
-            capture: false,
-          })
-
-          // 四个锚点圆圈
-          const anchorPositions = [
-            { name: 'anchor-top', x: 0, y: -radius },
-            { name: 'anchor-bottom', x: 0, y: radius },
-            { name: 'anchor-left', x: -radius, y: 0 },
-            { name: 'anchor-right', x: radius, y: 0 },
-          ]
-
-          anchorPositions.forEach((ap) => {
-            group.addShape('circle', {
-              attrs: {
-                x: ap.x,
-                y: ap.y,
-                r: 5,
-                fill: '#ffffff',
-                stroke: '#4B7BEC',
-                lineWidth: 2,
-                opacity: 0,
-                cursor: 'crosshair',
-              },
-              name: ap.name,
-            })
-          })
-
-          return circle
-        },
-
-        update(cfg, item) {
-          const group = item?.getContainer()
-          if (!group) return
-
-          const model = cfg as Record<string, unknown>
-          const nodeStyle = (model.style as Record<string, unknown>) || {}
-          const label = (model.label as string) || ''
-          const radius = ((nodeStyle.size as number) || 50) / 2
-          const textOffset = radius + 8
-          const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
-          const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
-          const selected = item?.hasState?.('selected') || false
-
-          // 更新圆形尺寸与颜色
-          const circles = group.findAllByName('node-circle')
-          circles.forEach((circle) => {
-            circle.attr('r', radius)
-            circle.attr('fill', fill)
-            // 选中态下保留橙色边框，不覆盖用户自定义描边
-            if (!selected) {
-              circle.attr({ stroke, lineWidth: 1 })
-            }
-          })
-
-          // 更新文字内容（只改 text，不新建 shape）
-          const texts = group.findAllByName('node-label')
-          texts.forEach((text) => {
-            text.attr({ text: label, y: textOffset })
-          })
-
-          // 更新锚点位置
-          const anchorPositions = [
-            { name: 'anchor-top', x: 0, y: -radius },
-            { name: 'anchor-bottom', x: 0, y: radius },
-            { name: 'anchor-left', x: -radius, y: 0 },
-            { name: 'anchor-right', x: radius, y: 0 },
-          ]
-          anchorPositions.forEach((ap) => {
-            const shapes = group.findAllByName(ap.name)
-            shapes.forEach((shape) => {
-              shape.attr({ x: ap.x, y: ap.y })
-            })
-          })
-
-          return circles[0]
-        },
-
-        setState(name, value, item) {
-          const group = item?.getContainer()
-          if (!group) return
-
-          if (name === 'hover') {
-            const top = group.findAllByName('anchor-top')
-            const bottom = group.findAllByName('anchor-bottom')
-            const left = group.findAllByName('anchor-left')
-            const right = group.findAllByName('anchor-right')
-            const allAnchors = [...top, ...bottom, ...left, ...right]
-            allAnchors.forEach((shape) => {
-              shape.attr('opacity', value ? 1 : 0)
-            })
-          }
-
-          if (name === 'selected') {
-            const circles = group.findAllByName('node-circle')
-            if (circles.length > 0) {
-              const model = item?.getModel() as Record<string, unknown>
-              const style = (model.style as Record<string, unknown>) || {}
-              const baseStroke = (style.stroke as string) || DEFAULT_NODE_STYLE.stroke
-              circles[0].attr('stroke', value ? '#FF6B35' : baseStroke)
-              circles[0].attr('lineWidth', value ? 3 : 2)
-            }
-          }
-
-          if (name === 'search-highlight') {
-            const circles = group.findAllByName('node-circle')
-            if (circles.length > 0) {
-              circles[0].attr('shadowColor', value ? '#FFB400' : 'transparent')
-              circles[0].attr('shadowBlur', value ? 14 : 0)
-            }
-          }
-
-          if (name === 'path-highlight') {
-            const circles = group.findAllByName('node-circle')
-            if (circles.length > 0) {
-              circles[0].attr('shadowColor', value ? '#22C55E' : 'transparent')
-              circles[0].attr('shadowBlur', value ? 16 : 0)
-              circles[0].attr('lineWidth', value ? 3 : 1)
-            }
-          }
-        },
-
-        getAnchorPoints() {
-          return [
-            [0.5, 0],
-            [1, 0.5],
-            [0.5, 1],
-            [0, 0.5],
-          ]
-        },
-      },
-      'single-node',
-    )
-  }
 
   /**
    * 创建 G6 图实例
@@ -469,93 +77,23 @@ export function useGraphInstance(): UseGraphInstanceReturn {
       graphInstance.value = null
     }
 
-    // 注册自定义节点
-    registerCustomNode()
+    // 注册节点（矩形 / 圆形，均基于内置形状增强）
+    registerRectNode()
     registerCircleNode()
 
     const isEditMode = mode === 'edit'
-
-    const defaultLayout = {
-      type: 'force',
-      preventOverlap: true,
-      nodeStrength: -200,
-      edgeStrength: 0.1,
-      nodeSize: 40,
-      linkDistance: 200,
-    }
-
-    const layoutConfig = customLayout || defaultLayout
-
-    const defaultNode = {
-      type: CUSTOM_NODE_TYPE,
-      size: [80, 40],
-    }
-
-    const defaultEdge = {
-      type: 'line',
-      style: DEFAULT_EDGE_STYLE,
-      labelCfg: {
-        autoRotate: true,
-        style: {
-          fill: '#666',
-          fontSize: 11,
-          background: {
-            fill: '#ffffff',
-            padding: [2, 4, 2, 4],
-            radius: 2,
-          },
-        },
-      },
-    }
-
-    // 边的高亮状态样式（搜索定位时高亮与目标相连的连线）
-    const edgeStateStyles = {
-      'search-highlight': {
-        stroke: '#FFB400',
-        lineWidth: 3,
-        shadowColor: '#FFB400',
-        shadowBlur: 8,
-      },
-      'path-highlight': {
-        stroke: '#22C55E',
-        lineWidth: 3,
-        shadowColor: '#22C55E',
-        shadowBlur: 8,
-      },
-    }
-
-    // G6 4.x 的 modes 支持字符串和对象混用
-    // 注意：create-edge 与 drag-node 冲突，连线功能在 GraphEditor.vue 中手动实现
-    const editModes: string[] = [
-      'drag-canvas',
-      'zoom-canvas',
-      'drag-node',
-      {
-        type: 'brush-select',
-        trigger: 'shift',
-        brushStyle: {
-          fill: '#4B7BEC',
-          fillOpacity: 0.1,
-          stroke: '#4B7BEC',
-        },
-      } as unknown as string,
-    ]
-
-    const displayModes: string[] = [
-      'drag-canvas',
-      'zoom-canvas',
-    ]
+    const layoutConfig = customLayout || DEFAULT_LAYOUT
 
     const graph = new G6.Graph({
       container,
       width,
       height,
-      defaultNode,
-      defaultEdge,
-      edgeStateStyles,
+      defaultNode: DEFAULT_NODE,
+      defaultEdge: DEFAULT_EDGE,
+      edgeStateStyles: EDGE_STATE_STYLES,
       modes: {
-        default: isEditMode ? editModes : displayModes,
-        display: displayModes,
+        default: isEditMode ? EDIT_MODES : DISPLAY_MODES,
+        display: DISPLAY_MODES,
       },
       layout: layoutConfig,
       animate: true,
@@ -567,25 +105,9 @@ export function useGraphInstance(): UseGraphInstanceReturn {
 
     graphInstance.value = graph
 
-    // 添加网格背景（CSS repeating-linear-gradient）。
-    // 网格 div 始终 100% 铺满容器，平移用 background-position、缩放用周期(gridSize*zoom) 体现，
-    // 避免有限尺寸 div 在平移/缩放后露出边缘白边。
+    // 添加网格背景（CSS repeating-linear-gradient，详见 gridOverlay.ts）
     if (gridSize > 0) {
-      const gridEl = document.createElement('div')
-      gridEl.className = GRID_CLASS
-      gridEl.style.cssText = [
-        'position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;',
-        'pointer-events:none;z-index:0;',
-      ].join('\n')
-      // 初始背景（zoom=1 时周期 = gridSize），viewportchange 会按缩放动态更新
-      const p = gridSize
-      gridEl.style.backgroundImage = [
-        `repeating-linear-gradient(0deg, transparent, transparent ${p - 1}px, rgba(136,136,136,0.18) ${p - 1}px, rgba(136,136,136,0.18) ${p}px)`,
-        `repeating-linear-gradient(90deg, transparent, transparent ${p - 1}px, rgba(136,136,136,0.18) ${p - 1}px, rgba(136,136,136,0.18) ${p}px)`,
-      ].join(',')
-      gridEl.style.backgroundPosition = '0 0'
-      container.style.overflow = 'hidden'
-      container.insertBefore(gridEl, container.firstChild)
+      createGridOverlay(container, gridSize)
     }
 
     return graph
@@ -598,10 +120,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     if (graphInstance.value) {
       // 清理网格 overlay
       const container = graphInstance.value.get('container') as HTMLElement
-      if (container) {
-        const gridEl = container.querySelector(`.${GRID_CLASS}`)
-        if (gridEl) gridEl.remove()
-      }
+      if (container) removeGridOverlay(container)
       graphInstance.value.destroy()
       graphInstance.value = null
     }
@@ -617,7 +136,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
 
     graph.clear()
 
-    const nodeType = nodeShape === 'circle' ? CIRCLE_NODE_TYPE : CUSTOM_NODE_TYPE
+    const nodeType = nodeShape === 'circle' ? CIRCLE_NODE_TYPE : RECT_NODE_TYPE
 
     // 转换节点数据
     const nodes = data.nodes.map((node) => {
@@ -672,7 +191,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
         fx: (n.fx ?? n.x) as number | undefined,
         fy: (n.fy ?? n.y) as number | undefined,
         properties: (n.properties as Record<string, unknown>) || {},
-        type: (n.type as string) || CUSTOM_NODE_TYPE,
+        type: (n.type as string) || RECT_NODE_TYPE,
         style: (n.style as Record<string, unknown>) || {},
       }
     })
