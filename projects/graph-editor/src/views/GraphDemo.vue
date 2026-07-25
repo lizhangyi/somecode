@@ -454,6 +454,8 @@ const isDirty = ref(false)
 // 多选状态（来自内核 selectionChange）
 const selection = ref<{ nodes: string[]; edges: string[] }>({ nodes: [], edges: [] })
 const selectedCount = computed(() => selection.value.nodes.length + selection.value.edges.length)
+// 节点点击顺序（用于按"先点后点"决定边方向：source = 先点，target = 后点）
+const selectedNodeOrder = ref<string[]>([])
 
 // 右键菜单状态（坐标用 clientX/clientY，position: fixed）
 const contextMenu = ref<{
@@ -855,8 +857,16 @@ function handleDeleteProp(key: string): void {
 
 // ==================== 工具栏操作 ====================
 
-function handleNodeClick(data: NodeData): void {
-  console.log('[GraphDemo] 节点点击:', data)
+function handleNodeClick(data: NodeData, shift: boolean): void {
+  if (shift) {
+    // Shift 多选：在点击顺序里切换该节点
+    const i = selectedNodeOrder.value.indexOf(data.id)
+    if (i >= 0) selectedNodeOrder.value.splice(i, 1)
+    else selectedNodeOrder.value.push(data.id)
+  } else {
+    // 普通点击：重置为仅当前节点
+    selectedNodeOrder.value = [data.id]
+  }
 }
 
 function handleReady(_graph: unknown): void {
@@ -878,27 +888,38 @@ function handleAddNode(): void {
 }
 
 /**
- * 添加边（连接两个已有节点）
+ * 添加边（连接当前选中的两个节点）
+ * 方向：按点击顺序，先点的节点为 source，后点的为 target
  */
 function handleAddEdge(): void {
   if (!graphEditorRef.value) return
-  const data = graphEditorRef.value.getAllData()
-  if (data.nodes.length < 2) {
-    alert('至少需要两个节点才能添加边')
+  const ids = selection.value.nodes
+
+  if (ids.length < 2) {
+    alert('请先选中两个节点，再点击「添加边」。')
+    return
+  }
+  if (ids.length > 2) {
+    alert(`一次只能为两个节点添加边，当前已选中 ${ids.length} 个节点，请只保留两个。`)
     return
   }
 
-  // 连接第一个和最后一个节点
-  const source = data.nodes[0]
-  const target = data.nodes[data.nodes.length - 1]
+  // 用点击顺序确定方向；兜底用选中集合顺序（G6 内部序）
+  const ordered = selectedNodeOrder.value.filter((id) => ids.includes(id))
+  const [sourceId, targetId] = ordered.length === 2 ? ordered : [ids[0], ids[1]]
 
-  graphEditorRef.value.addEdge({
-    source: source.id,
-    target: target.id,
+  const all = graphEditorRef.value.getAllData()
+  const labelOf = (id: string): string => all.nodes.find((n) => n.id === id)?.label ?? id
+
+  const newId = graphEditorRef.value.addEdge({
+    source: sourceId,
+    target: targetId,
     type: selectedEdgeType.value,
-    label: `${source.label} → ${target.label}`,
+    label: `${labelOf(sourceId)} → ${labelOf(targetId)}`,
   })
 
+  // 仅当确有新增或转为双向时才标脏（同方向已存在则返回 ''）
+  if (newId) isDirty.value = true
   syncCounts()
   isDirty.value = true
 }
@@ -1007,6 +1028,8 @@ function syncCounts(): void {
 /** 内核选择集合变化 */
 function handleSelectionChange(payload: { nodes: string[]; edges: string[] }): void {
   selection.value = payload
+  // 维持点击顺序与当前选中集合一致，丢弃已被取消选中的节点
+  selectedNodeOrder.value = selectedNodeOrder.value.filter((id) => payload.nodes.includes(id))
   if (payload.nodes.length === 0 && payload.edges.length === 0) {
     // 选择被清空时，若侧栏仍指向旧单选项则复位
     selectedNodeId.value = null
