@@ -29,10 +29,16 @@ export class UpdateEdgeCommand implements ICommand {
       type: (model.type as EdgeData['type']) || 'line',
       label: (model.label as string) || '',
     }
+    // 记录原始 style（深拷贝），撤销时整体还原，避免局部更新丢失其它样式键
+    if (model.style) this.oldData.style = cloneDeep(model.style) as EdgeData['style']
 
     const update: Record<string, unknown> = {}
     if (this.newData.type !== undefined) update.type = this.newData.type
     if (this.newData.label !== undefined) update.label = this.newData.label
+    // style 与模型原有 style 合并，支持颜色/线宽/虚线/箭头等局部覆盖
+    if (this.newData.style) {
+      update.style = { ...(model.style as Record<string, unknown>), ...this.newData.style }
+    }
 
     this.graph.updateItem(edgeItem, update)
   }
@@ -44,6 +50,7 @@ export class UpdateEdgeCommand implements ICommand {
     const update: Record<string, unknown> = {}
     if (this.oldData.type !== undefined) update.type = this.oldData.type
     if (this.oldData.label !== undefined) update.label = this.oldData.label
+    if (this.oldData.style !== undefined) update.style = this.oldData.style
 
     this.graph.updateItem(edgeItem, update)
   }
