@@ -126,6 +126,8 @@
           :selected-node-id="selectedNodeId"
           @node-click="handleNodeClick"
           @update:selectedNodeId="selectedNodeId = $event"
+          @selection-change="handleSelectionChange"
+          @contextmenu="handleContextMenu"
           @ready="handleReady"
         />
       </div>
@@ -136,7 +138,27 @@
           <h3>节点属性</h3>
         </div>
 
-        <div v-if="!selectedNodeId" class="graph-demo__sidebar-empty">
+        <!-- 多选批量操作面板 -->
+        <div v-if="selectedCount > 1" class="graph-demo__sidebar-batch">
+          <h4>已选中 {{ selectedCount }} 个对象</h4>
+          <p class="graph-demo__batch-sub">节点 {{ selection.nodes.length }} · 边 {{ selection.edges.length }}</p>
+
+          <div class="graph-demo__form-group">
+            <label>批量填充色（仅节点）</label>
+            <input
+              type="color"
+              :value="batchFill"
+              @input="handleBatchFill"
+            />
+          </div>
+
+          <div class="graph-demo__batch-actions">
+            <button class="graph-demo__btn graph-demo__btn--danger" @click="handleBatchDelete">批量删除</button>
+            <button class="graph-demo__btn" @click="handleClearSelection">取消选中</button>
+          </div>
+        </div>
+
+        <div v-if="selectedCount === 0" class="graph-demo__sidebar-empty">
           <p>点击画布中的节点查看和编辑属性</p>
           <div class="graph-demo__sidebar-tips">
             <p><strong>快捷键：</strong></p>
@@ -264,6 +286,55 @@
         <button class="graph-demo__btn" @click="exportedImage = ''">关闭</button>
       </div>
     </div>
+
+    <!-- 右键浮动菜单 -->
+    <div
+      v-if="contextMenu.visible"
+      class="graph-demo__context-menu"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+      @click.stop
+      @contextmenu.prevent
+    >
+      <!-- 画布空白 -->
+      <template v-if="contextMenu.itemType === 'blank'">
+        <button class="graph-demo__context-item" @click="handleContextAddNode">在此新建节点</button>
+        <div class="graph-demo__context-sep"></div>
+        <button class="graph-demo__context-item" @click="handleContextSelectAll">全选</button>
+        <button class="graph-demo__context-item" @click="handleContextFitView">居中视图</button>
+        <button class="graph-demo__context-item" @click="handleUndo">撤销</button>
+        <button class="graph-demo__context-item" @click="handleRedo">重做</button>
+        <button class="graph-demo__context-item" @click="handleExportImage">导出截图</button>
+        <div class="graph-demo__context-sep"></div>
+        <button class="graph-demo__context-item" @click="handleContextToggleGrid">
+          {{ gridVisible ? '隐藏网格' : '显示网格' }}
+        </button>
+      </template>
+
+      <!-- 节点 -->
+      <template v-else-if="contextMenu.itemType === 'node'">
+        <button class="graph-demo__context-item" @click="handleContextDelete">
+          删除{{ selection.nodes.length > 1 ? '选中节点' : '节点' }}
+        </button>
+        <button class="graph-demo__context-item" @click="handleContextClone">克隆节点</button>
+        <div class="graph-demo__context-sep"></div>
+        <button class="graph-demo__context-item" @click="handleContextTogglePin">
+          {{ isNodePinned(contextMenu.id) ? '解锁位置' : '固定位置' }}
+        </button>
+        <div class="graph-demo__context-sep"></div>
+        <button class="graph-demo__context-item" @click="handleContextSetStart">设为路径起点</button>
+        <button class="graph-demo__context-item" @click="handleContextSetEnd">设为路径终点</button>
+      </template>
+
+      <!-- 边 -->
+      <template v-else>
+        <button class="graph-demo__context-item" @click="handleContextDelete">删除边</button>
+        <button class="graph-demo__context-item" @click="handleContextReverse">反转方向</button>
+        <div class="graph-demo__context-sep"></div>
+        <button class="graph-demo__context-item" @click="handleContextSetEdgeType('line')">切换为直线</button>
+        <button class="graph-demo__context-item" @click="handleContextSetEdgeType('quadratic')">切换为曲线</button>
+        <button class="graph-demo__context-item" @click="handleContextSetEdgeType('cubic')">切换为折线</button>
+      </template>
+    </div>
   </div>
 </template>
 
@@ -288,6 +359,25 @@ const selectedEdgeType = ref<'line' | 'quadratic' | 'cubic'>('line')
 const nodeShape = ref<'rect' | 'circle'>('rect')
 const exportedImage = ref('')
 const isDirty = ref(false)
+
+// 多选状态（来自内核 selectionChange）
+const selection = ref<{ nodes: string[]; edges: string[] }>({ nodes: [], edges: [] })
+const selectedCount = computed(() => selection.value.nodes.length + selection.value.edges.length)
+
+// 右键菜单状态（坐标用 clientX/clientY，position: fixed）
+const contextMenu = ref<{
+  visible: boolean
+  x: number
+  y: number
+  itemType: 'node' | 'edge' | 'blank'
+  id: string | null
+}>({ visible: false, x: 0, y: 0, itemType: 'blank', id: null })
+
+/** 网格可见状态（与内核 toggleGrid 同步） */
+const gridVisible = ref(true)
+
+// 批量填充色默认值
+const batchFill = ref('#4B7BEC')
 
 // 节点搜索
 const searchKeyword = ref('')
@@ -624,7 +714,7 @@ function handleAddNode(): void {
     properties: { added: new Date().toISOString() },
   })
   selectedNodeId.value = id
-  nodeCount.value += 1
+  syncCounts()
   isDirty.value = true
 }
 
@@ -650,7 +740,7 @@ function handleAddEdge(): void {
     label: `${source.label} → ${target.label}`,
   })
 
-  edgeCount.value += 1
+  syncCounts()
   isDirty.value = true
 }
 
@@ -716,8 +806,9 @@ async function handleExportImage(): Promise<void> {
 async function handleClear(): Promise<void> {
   if (!confirm('确定要清空画布吗？此操作不可撤销。')) return
   await graphEditorRef.value?.clear()
-  nodeCount.value = 0
-  edgeCount.value = 0
+  selectedNodeId.value = null
+  selection.value = { nodes: [], edges: [] }
+  syncCounts()
   isDirty.value = true
 }
 
@@ -740,8 +831,168 @@ function handleDeleteNode(): void {
 
   graphEditorRef.value.deleteNode(selectedNodeId.value)
   selectedNodeId.value = null
-  nodeCount.value = Math.max(0, nodeCount.value - 1)
+  syncCounts()
   isDirty.value = true
+}
+
+// ==================== 多选 / 右键菜单 ====================
+
+/** 从内核同步节点与边计数 */
+function syncCounts(): void {
+  if (!graphEditorRef.value) return
+  const data = graphEditorRef.value.getAllData()
+  nodeCount.value = data.nodes.length
+  edgeCount.value = data.edges.length
+}
+
+/** 内核选择集合变化 */
+function handleSelectionChange(payload: { nodes: string[]; edges: string[] }): void {
+  selection.value = payload
+  if (payload.nodes.length === 0 && payload.edges.length === 0) {
+    // 选择被清空时，若侧栏仍指向旧单选项则复位
+    selectedNodeId.value = null
+  }
+}
+
+/** 内核右键请求 */
+function handleContextMenu(payload: { x: number; y: number; itemType: 'node' | 'edge' | 'blank'; id: string | null }): void {
+  contextMenu.value = { visible: true, ...payload }
+}
+
+/** 关闭右键菜单 */
+function closeContextMenu(): void {
+  contextMenu.value.visible = false
+}
+
+/** 右键空白处：在此新建节点 */
+function handleContextAddNode(): void {
+  if (!graphEditorRef.value) return
+  graphEditorRef.value.addNodeAtClient(contextMenu.value.x, contextMenu.value.y)
+  syncCounts()
+  isDirty.value = true
+  closeContextMenu()
+}
+
+/** 右键节点/边：删除（若右键对象属于多选集合则整组删除） */
+function handleContextDelete(): void {
+  if (!graphEditorRef.value) return
+  const ids = [...selection.value.nodes, ...selection.value.edges]
+  if (ids.length === 0 && contextMenu.value.id) ids.push(contextMenu.value.id)
+  graphEditorRef.value.deleteItems(ids)
+  syncCounts()
+  isDirty.value = true
+  closeContextMenu()
+}
+
+/** 判断节点是否已固定位置 */
+function isNodePinned(id: string | null): boolean {
+  if (!id || !graphEditorRef.value) return false
+  const all = graphEditorRef.value.getAllData()
+  const n = all.nodes.find((x) => x.id === id)
+  return n ? n.fx !== undefined : false
+}
+
+/** 空白：全选 */
+function handleContextSelectAll(): void {
+  graphEditorRef.value?.selectAll()
+  closeContextMenu()
+}
+
+/** 空白：居中视图 */
+function handleContextFitView(): void {
+  graphEditorRef.value?.fitView()
+  closeContextMenu()
+}
+
+/** 空白：切换网格显示 */
+function handleContextToggleGrid(): void {
+  graphEditorRef.value?.toggleGrid()
+  gridVisible.value = !gridVisible.value
+  closeContextMenu()
+}
+
+/** 节点：克隆 */
+function handleContextClone(): void {
+  const id = contextMenu.value.id
+  if (!id || !graphEditorRef.value) return
+  const newId = graphEditorRef.value.cloneNode(id)
+  selectedNodeId.value = newId
+  syncCounts()
+  isDirty.value = true
+  closeContextMenu()
+}
+
+/** 节点：固定 / 解锁位置 */
+function handleContextTogglePin(): void {
+  const id = contextMenu.value.id
+  if (!id || !graphEditorRef.value) return
+  if (isNodePinned(id)) graphEditorRef.value.unpinNode(id)
+  else graphEditorRef.value.pinNode(id)
+  isDirty.value = true
+  closeContextMenu()
+}
+
+/** 节点：设为路径起点（若终点已设则自动计算） */
+function handleContextSetStart(): void {
+  const id = contextMenu.value.id
+  if (!id) return
+  pathStart.value = id
+  if (pathEnd.value) handleFindPath()
+  closeContextMenu()
+}
+
+/** 节点：设为路径终点（若起点已设则自动计算） */
+function handleContextSetEnd(): void {
+  const id = contextMenu.value.id
+  if (!id) return
+  pathEnd.value = id
+  if (pathStart.value) handleFindPath()
+  closeContextMenu()
+}
+
+/** 边：反转方向 */
+function handleContextReverse(): void {
+  const id = contextMenu.value.id
+  if (!id || !graphEditorRef.value) return
+  graphEditorRef.value.reverseEdge(id)
+  isDirty.value = true
+  closeContextMenu()
+}
+
+/** 边：切换类型（单条边或多选边批量） */
+function handleContextSetEdgeType(type: 'line' | 'quadratic' | 'cubic'): void {
+  if (!graphEditorRef.value) return
+  const ids = selection.value.edges.length > 0
+    ? selection.value.edges
+    : ([contextMenu.value.id].filter(Boolean) as string[])
+  graphEditorRef.value.updateEdges(ids, { type })
+  isDirty.value = true
+  closeContextMenu()
+}
+
+/** 批量删除选中项 */
+function handleBatchDelete(): void {
+  if (!graphEditorRef.value) return
+  const ids = [...selection.value.nodes, ...selection.value.edges]
+  if (ids.length === 0) return
+  graphEditorRef.value.deleteItems(ids)
+  syncCounts()
+  isDirty.value = true
+}
+
+/** 批量填充色（仅作用于选中的节点） */
+function handleBatchFill(e: Event): void {
+  const value = (e.target as HTMLInputElement).value
+  batchFill.value = value
+  if (!graphEditorRef.value || selection.value.nodes.length === 0) return
+  graphEditorRef.value.updateNodes(selection.value.nodes, { style: { fill: value } })
+  isDirty.value = true
+}
+
+/** 取消选中 */
+function handleClearSelection(): void {
+  graphEditorRef.value?.clearSelection()
+  selection.value = { nodes: [], edges: [] }
 }
 
 // ==================== 初始化数据 ====================
@@ -756,6 +1007,9 @@ onMounted(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(getDefaultData()))
     console.log('[GraphDemo] 已写入默认演示数据')
   }
+
+  // 左键点击任意处关闭右键菜单
+  window.addEventListener('click', closeContextMenu)
 })
 
 // Playground UI 状态变化自动持久化
@@ -764,7 +1018,7 @@ watch(selectedEdgeType, savePlaygroundState)
 watch(nodeShape, savePlaygroundState)
 
 onBeforeUnmount(() => {
-  // cleanup
+  window.removeEventListener('click', closeContextMenu)
 })
 </script>
 
@@ -1107,6 +1361,75 @@ onBeforeUnmount(() => {
   &__status-info {
     color: #999;
     margin-left: auto;
+  }
+
+  &__sidebar-batch {
+    padding: 16px;
+    background: #eef3ff;
+    border-bottom: 1px solid #e8ecf1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    h4 {
+      margin: 0;
+      font-size: 14px;
+      color: #1a1a2e;
+    }
+
+    input[type='color'] {
+      width: 100%;
+      height: 36px;
+      padding: 2px;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  }
+
+  &__batch-sub {
+    margin: 0;
+    font-size: 12px;
+    color: #666;
+  }
+
+  &__batch-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  &__context-menu {
+    position: fixed;
+    z-index: 1100;
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+    padding: 4px;
+    min-width: 140px;
+  }
+
+  &__context-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    border-radius: 4px;
+
+    &:hover {
+      background: #f0f2f5;
+    }
+  }
+
+  &__context-sep {
+    height: 1px;
+    background: #e8ecf1;
+    margin: 4px 0;
   }
 
   &__overlay {
