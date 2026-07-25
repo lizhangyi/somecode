@@ -99,6 +99,8 @@ const props = withDefaults(
     gridSize?: number
     /** 节点形状：rect 圆角矩形 / circle 圆形 */
     nodeShape?: 'rect' | 'circle'
+    /** 是否启用 tooltip（默认开启） */
+    showTooltip?: boolean
   }>(),
   {
     nodeKey: 'id',
@@ -107,6 +109,7 @@ const props = withDefaults(
     showZoomControls: true,
     gridSize: 20,
     nodeShape: 'rect',
+    showTooltip: true,
     layout: () => ({
       type: 'force',
       preventOverlap: true,
@@ -129,6 +132,8 @@ const emit = defineEmits<{
   selectionChange: [payload: { nodes: string[]; edges: string[] }]
   /** 右键菜单请求（外壳渲染浮动菜单） */
   contextmenu: [payload: { x: number; y: number; itemType: 'node' | 'edge' | 'blank'; id: string | null }]
+  /** 节点悬浮提示（外壳渲染 tooltip 展示备注 properties，离开节点时 payload 为 null） */
+  nodeHover: [payload: { id: string; label: string; properties: Record<string, unknown>; x: number; y: number } | null]
   /** 数据变更 */
   dataChange: [operations: import('./types/operations').Operation[], version?: number]
   /** 图实例就绪 */
@@ -335,21 +340,17 @@ function bindGraphEvents(graph: Graph): void {
     }
   })
 
-  // 节点悬浮 —— 显示锚点圆圈（用 mousemove + 碰撞检测，比 mouseenter/mouseleave 更可靠）
+  // 节点悬浮检测：用 mousemove + 碰撞检测（比 mouseenter/mouseleave 更可靠）
+  // 命中节点 → 广播 tooltip 数据（外壳渲染）；移到空白/移出 → 广播 null 关闭 tooltip
   let hoverPending = false
   graph.on('mousemove', (evt: Record<string, unknown>) => {
-    if (props.mode !== 'edit' || hoverPending) return
+    if (hoverPending) return
     hoverPending = true
     requestAnimationFrame(() => {
       hoverPending = false
 
       const mx = (evt.x as number) || 0
       const my = (evt.y as number) || 0
-
-      // 清除所有节点的 hover 状态
-      graph.findAllByState('node', 'hover').forEach((n: { getModel: () => Record<string, unknown> }) => {
-        graph.setItemState(n as unknown as Parameters<Graph['setItemState']>[0], 'hover', false)
-      })
 
       // 找到鼠标下方的节点
       const nodes = graph.getNodes()
@@ -359,7 +360,34 @@ function bindGraphEvents(graph: Graph): void {
       })
 
       if (hovered) {
-        graph.setItemState(hovered as unknown as Parameters<Graph['setItemState']>[0], 'hover', true)
+        // 编辑模式：高亮节点（显示锚点圆圈）
+        if (props.mode === 'edit') {
+          graph.findAllByState('node', 'hover').forEach((n: { getModel: () => Record<string, unknown> }) => {
+            graph.setItemState(n as unknown as Parameters<Graph['setItemState']>[0], 'hover', false)
+          })
+          graph.setItemState(hovered as unknown as Parameters<Graph['setItemState']>[0], 'hover', true)
+        }
+        // 悬浮 tooltip（受 showTooltip 开关控制）
+        if (props.showTooltip) {
+          const model = hovered.getModel() as Record<string, unknown>
+          emit('nodeHover', {
+            id: model.id as string,
+            label: (model.label as string) || '',
+            properties: (model.properties as Record<string, unknown>) || {},
+            x: (evt.clientX as number) || 0,
+            y: (evt.clientY as number) || 0,
+          })
+        }
+      } else {
+        if (props.mode === 'edit') {
+          graph.findAllByState('node', 'hover').forEach((n: { getModel: () => Record<string, unknown> }) => {
+            graph.setItemState(n as unknown as Parameters<Graph['setItemState']>[0], 'hover', false)
+          })
+        }
+        // 未命中节点：关闭 tooltip（仅当开关开启时曾广播）
+        if (props.showTooltip) {
+          emit('nodeHover', null)
+        }
       }
     })
   })
