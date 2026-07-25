@@ -10,6 +10,9 @@
   flex-direction: column;
   overflow: hidden;
   background: #f8f9fb;
+  // 容器带 tabindex 用于捕获键盘快捷键，需去掉浏览器默认聚焦轮廓
+  // （即画布边缘那一圈黑色边框），否则聚焦时会显示默认 focus outline
+  outline: none;
 
   &__canvas-wrapper {
     flex: 1;
@@ -21,6 +24,8 @@
 
     canvas {
       display: block;
+      // G6 可能将 canvas 设为可聚焦，同样抑制默认聚焦轮廓
+      outline: none;
     }
   }
 
