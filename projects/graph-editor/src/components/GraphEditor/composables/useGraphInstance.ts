@@ -165,8 +165,11 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           const label = (model.label as string) || ''
           const rectHeight = (nodeStyle.size as number) || 40
           const textWidth = Math.max(label.length * 14 + 24, rectHeight)
+          const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
+          const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
+          const selected = item?.hasState?.('selected') || false
 
-          // 更新矩形尺寸
+          // 更新矩形尺寸与颜色
           const rects = group.findAllByName('node-rect')
           rects.forEach((rect) => {
             rect.attr({
@@ -174,7 +177,12 @@ export function useGraphInstance(): UseGraphInstanceReturn {
               height: rectHeight,
               x: -textWidth / 2,
               y: -rectHeight / 2,
+              fill,
             })
+            // 选中态下保留橙色边框，不覆盖用户自定义描边
+            if (!selected) {
+              rect.attr({ stroke, lineWidth: 1 })
+            }
           })
 
           // 更新文字内容（只改 text，不新建 shape）
@@ -341,11 +349,19 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           const label = (model.label as string) || ''
           const radius = ((nodeStyle.size as number) || 50) / 2
           const textOffset = radius + 8
+          const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
+          const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
+          const selected = item?.hasState?.('selected') || false
 
-          // 更新圆形尺寸
+          // 更新圆形尺寸与颜色
           const circles = group.findAllByName('node-circle')
           circles.forEach((circle) => {
             circle.attr('r', radius)
+            circle.attr('fill', fill)
+            // 选中态下保留橙色边框，不覆盖用户自定义描边
+            if (!selected) {
+              circle.attr({ stroke, lineWidth: 1 })
+            }
           })
 
           // 更新文字内容（只改 text，不新建 shape）
