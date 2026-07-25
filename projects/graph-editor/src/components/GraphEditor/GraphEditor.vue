@@ -1,5 +1,5 @@
 <template>
-  <div class="graph-editor" ref="containerRef" tabindex="0" @keydown="handleKeydown">
+  <div class="graph-editor" ref="containerRef" tabindex="0" @keydown="handleKeydown" @contextmenu.prevent>
     <!-- 加载中插槽 -->
     <div v-if="loading" class="graph-editor__loading">
       <slot name="loading">
@@ -66,6 +66,8 @@ import {
   DeleteEdgeCommand,
   UpdateEdgeCommand,
   CompositeCommand,
+  CloneNodeCommand,
+  ReverseEdgeCommand,
 } from './composables/commands'
 import { useGraphSync } from './composables/useGraphSync'
 import { RECT_NODE_TYPE, CIRCLE_NODE_TYPE } from './composables/graphConfig'
@@ -121,8 +123,12 @@ const props = withDefaults(
 const emit = defineEmits<{
   /** 节点点击 */
   nodeClick: [data: NodeData]
-  /** 选中节点 ID 更新（用于 v-model） */
+  /** 选中节点 ID 更新（用于 v-model，仅单选时回填，多选时为 null） */
   'update:selectedNodeId': [id: string | null]
+  /** 选择集合变化（节点 + 边 id 列表），用于外壳批量操作 UI */
+  selectionChange: [payload: { nodes: string[]; edges: string[] }]
+  /** 右键菜单请求（外壳渲染浮动菜单） */
+  contextmenu: [payload: { x: number; y: number; itemType: 'node' | 'edge' | 'blank'; id: string | null }]
   /** 数据变更 */
   dataChange: [operations: import('./types/operations').Operation[], version?: number]
   /** 图实例就绪 */
@@ -148,6 +154,7 @@ const {
   fitView,
   exportImage,
   forceLayout,
+  setGridVisible,
 } = useGraphInstance()
 
 const {
@@ -183,6 +190,53 @@ const isEmpty = ref(false)
 const currentVersion = ref<number | undefined>(undefined)
 const graphReady = ref(false)
 const zoomPercent = ref(100)
+
+// ==================== 选择状态辅助 ====================
+
+/** 从 G6 事件安全读取 shiftKey（兼容 originalEvent） */
+function getShiftKey(evt: Record<string, unknown>): boolean {
+  const e = evt as { shiftKey?: boolean; originalEvent?: { shiftKey?: boolean } }
+  return Boolean(e.shiftKey || e.originalEvent?.shiftKey)
+}
+
+/** 清除所有节点/边的 selected 视觉态（不触发 emit） */
+function clearSelectedStates(): void {
+  const graph = graphInstance.value
+  if (!graph) return
+  graph.findAllByState('node', 'selected').forEach((n) => {
+    graph.setItemState(n, 'selected', false)
+  })
+  graph.findAllByState('edge', 'selected').forEach((e) => {
+    graph.setItemState(e, 'selected', false)
+  })
+}
+
+/** 清除选中并向外壳同步（用于空白点击 / Esc / 删除后） */
+function clearSelection(): void {
+  clearSelectedStates()
+  emit('update:selectedNodeId', null)
+  emit('selectionChange', { nodes: [], edges: [] })
+}
+
+/**
+ * 向外壳广播当前选择集合。
+ * 单选节点 / 单选边时同步回填 update:selectedNodeId（供侧栏编辑），
+ * 多选 / 混合选择时回填 null（由外壳批量工具栏接管）。
+ */
+function emitSelectionChange(): void {
+  const graph = graphInstance.value
+  if (!graph) return
+  const nodeIds = graph.findAllByState('node', 'selected').map((n) => n.getID() as string)
+  const edgeIds = graph.findAllByState('edge', 'selected').map((e) => e.getID() as string)
+  emit('selectionChange', { nodes: nodeIds, edges: edgeIds })
+
+  let singleId: string | null = null
+  if (nodeIds.length === 1 && edgeIds.length === 0) singleId = nodeIds[0]
+  else if (nodeIds.length === 0 && edgeIds.length === 1) singleId = edgeIds[0]
+  emit('update:selectedNodeId', singleId)
+}
+
+// ==================== 初始化图实例 ====================
 
 /**
  * 初始化图实例
@@ -250,6 +304,7 @@ function bindGraphEvents(graph: Graph): void {
   graph.on('node:click', (evt) => {
     const { item } = evt
     if (!item) return
+    const typedItem = item as unknown as { hasState: (s: string) => boolean; getID: () => string }
 
     const model = item.getModel() as Record<string, unknown>
     const nodeData: NodeData = {
@@ -263,17 +318,20 @@ function bindGraphEvents(graph: Graph): void {
     }
 
     emit('nodeClick', nodeData)
-    emit('update:selectedNodeId', nodeData.id)
 
-    // 仅在编辑模式下选中（先清除其他选中，再选当前）
+    // 编辑模式：处理多选（Shift 切换）与单选
     if (props.mode === 'edit') {
-      graph.findAllByState('node', 'selected').forEach((n: { getModel: () => Record<string, unknown> }) => {
-        graph.setItemState(n as unknown as Parameters<Graph['setItemState']>[0], 'selected', false)
-      })
-      graph.findAllByState('edge', 'selected').forEach((e: { getModel: () => Record<string, unknown> }) => {
-        graph.setItemState(e as unknown as Parameters<Graph['setItemState']>[0], 'selected', false)
-      })
-      graph.setItemState(item, 'selected', true)
+      if (getShiftKey(evt)) {
+        // Shift+点击：在现有选择上切换该节点
+        graph.setItemState(item, 'selected', !typedItem.hasState('selected'))
+      } else {
+        // 普通点击：清除其他选中再选当前
+        clearSelectedStates()
+        graph.setItemState(item, 'selected', true)
+      }
+      emitSelectionChange()
+    } else {
+      emit('update:selectedNodeId', nodeData.id)
     }
   })
 
@@ -306,17 +364,7 @@ function bindGraphEvents(graph: Graph): void {
     })
   })
 
-  // 清除所有选中状态（G6 视觉态 + 父组件 selectedNodeId）
-  function clearSelection(): void {
-    emit('update:selectedNodeId', null)
-    graph.findAllByState('node', 'selected').forEach((n: { getModel: () => Record<string, unknown> }) => {
-      graph.setItemState(n as unknown as Parameters<Graph['setItemState']>[0], 'selected', false)
-    })
-    graph.findAllByState('edge', 'selected').forEach((e: { getModel: () => Record<string, unknown> }) => {
-      graph.setItemState(e as unknown as Parameters<Graph['setItemState']>[0], 'selected', false)
-    })
-  }
-
+  // 清除所有选中状态（复用组件级 clearSelection：清除 G6 视觉态 + 父组件 selectedNodeId）
   // 方案 A：canvas:click 仅在点击空白（非节点/边）时触发，直接清除选中
   graph.on('canvas:click', () => {
     clearSelection()
@@ -345,23 +393,50 @@ function bindGraphEvents(graph: Graph): void {
     emit('dataChange', operationQueue.value, currentVersion.value)
   })
 
-  // 边点击（编辑模式下选中边）
+  // 边点击（编辑模式下选中边，支持 Shift 多选）
   if (props.mode === 'edit') {
-    graph.on('edge:click', (evt: { item?: { getModel: () => Record<string, unknown> } }) => {
+    graph.on('edge:click', (evt) => {
       const { item } = evt
       if (!item) return
-      const model = item.getModel() as Record<string, unknown>
-      emit('update:selectedNodeId', model.id as string)
-      // 先清除其他选中，再选当前边
-      graph.findAllByState('node', 'selected').forEach((n: { getModel: () => Record<string, unknown> }) => {
-        graph.setItemState(n as unknown as Parameters<Graph['setItemState']>[0], 'selected', false)
-      })
-      graph.findAllByState('edge', 'selected').forEach((e: { getModel: () => Record<string, unknown> }) => {
-        graph.setItemState(e as unknown as Parameters<Graph['setItemState']>[0], 'selected', false)
-      })
-      graph.setItemState(item as unknown as Parameters<Graph['setItemState']>[0], 'selected', true)
+      const typedItem = item as unknown as { hasState: (s: string) => boolean }
+      if (getShiftKey(evt)) {
+        graph.setItemState(item, 'selected', !typedItem.hasState('selected'))
+      } else {
+        clearSelectedStates()
+        graph.setItemState(item, 'selected', true)
+      }
+      emitSelectionChange()
     })
   }
+
+  // 框选（brush-select）完成后，同步选择集合到外壳批量工具栏
+  graph.on('nodeselectchange', () => {
+    emitSelectionChange()
+  })
+
+  // 右键菜单：区分节点 / 边 / 空白，选中目标（若未选中则仅选中它）并广播屏幕坐标
+  graph.on('contextmenu', (evt: Record<string, unknown>) => {
+    if (props.mode !== 'edit') return
+    const item = evt.item as
+      | { getID: () => string; hasState: (s: string) => boolean; getType?: () => string }
+      | undefined
+    let itemType: 'node' | 'edge' | 'blank' = 'blank'
+    let id: string | null = null
+    if (item) {
+      const t = item.getType?.()
+      itemType = t === 'edge' ? 'edge' : 'node'
+      id = item.getID()
+      // 右键对象未选中时仅选中它；已选中则保留多选，便于整组删除
+      if (!item.hasState('selected')) {
+        clearSelectedStates()
+        graph.setItemState(item as unknown as Parameters<Graph['setItemState']>[0], 'selected', true)
+      }
+      emitSelectionChange()
+    }
+    const clientX = (evt.clientX as number) || 0
+    const clientY = (evt.clientY as number) || 0
+    emit('contextmenu', { x: clientX, y: clientY, itemType, id })
+  })
 
   // 自定义拖拽连线（替代 create-edge behavior，避免与 drag-node 冲突）
   setupCustomEdgeCreation(graph)
@@ -645,40 +720,89 @@ function handleKeydown(e: KeyboardEvent): void {
 }
 
 /**
- * 全选
+ * 全选（节点 + 边）
  */
 function selectAll(): void {
   const graph = graphInstance.value
   if (!graph) return
 
-  const nodes = graph.getNodes()
-  nodes.forEach((node) => graph.setItemState(node, 'selected', true))
+  graph.getNodes().forEach((node) => graph.setItemState(node, 'selected', true))
+  graph.getEdges().forEach((edge) => graph.setItemState(edge, 'selected', true))
+  emitSelectionChange()
 }
 
 /**
- * 删除选中项
+ * 构建批量删除命令：
+ * - 被删节点连带的关联边由 DeleteNodeCommand 负责清理，因此这些边不单独生成命令；
+ * - 仅当边的两个端点都“不被删除”时，才生成独立的 DeleteEdgeCommand，避免重复删除。
+ * 返回的命令数组由调用方聚合为 CompositeCommand，保证一次撤销还原全部。
+ */
+function buildDeleteCommands(nodeIds: string[], edgeIds: string[]): Array<
+  DeleteNodeCommand | DeleteEdgeCommand
+> {
+  const graph = graphInstance.value
+  if (!graph) return []
+  const nodeIdSet = new Set(nodeIds)
+  const cmds: Array<DeleteNodeCommand | DeleteEdgeCommand> = []
+
+  edgeIds.forEach((id) => {
+    const edgeItem = graph.findById(id)
+    if (!edgeItem) return
+    const m = edgeItem.getModel() as Record<string, unknown>
+    const src = m.source as string
+    const tgt = m.target as string
+    if (!nodeIdSet.has(src) && !nodeIdSet.has(tgt)) {
+      cmds.push(new DeleteEdgeCommand(graph, id))
+    }
+  })
+
+  nodeIds.forEach((id) => {
+    cmds.push(new DeleteNodeCommand(graph, id))
+  })
+
+  return cmds
+}
+
+/**
+ * 删除选中项（节点 + 边），聚合为单条组合命令，一次撤销还原全部
  */
 function deleteSelected(): void {
   const graph = graphInstance.value
   if (!graph) return
 
-  // 删除选中的边
-  const selectedEdges = graph.findAllByState('edge', 'selected')
-  selectedEdges.forEach((edge) => {
-    const model = edge.getModel() as Record<string, unknown>
-    const command = new DeleteEdgeCommand(graph, model.id as string)
-    execute(command)
+  const nodeIds = graph.findAllByState('node', 'selected').map((n) => n.getID() as string)
+  const edgeIds = graph.findAllByState('edge', 'selected').map((e) => e.getID() as string)
+  const cmds = buildDeleteCommands(nodeIds, edgeIds)
+  if (cmds.length === 0) return
+
+  execute(new CompositeCommand(cmds, '批量删除选中项'))
+  clearSelection()
+  emit('dataChange', operationQueue.value, currentVersion.value)
+}
+
+/**
+ * 按 id 列表批量删除（节点与边混合），一次撤销还原全部
+ */
+function deleteItems(ids: string[]): void {
+  const graph = graphInstance.value
+  if (!graph || ids.length === 0) return
+
+  const nodeIds: string[] = []
+  const edgeIds: string[] = []
+  ids.forEach((id) => {
+    const item = graph.findById(id)
+    if (!item) return
+    const t = (item as { getType?: () => string }).getType?.()
+    if (t === 'edge') edgeIds.push(id)
+    else nodeIds.push(id)
   })
 
-  // 删除选中的节点
-  const selectedNodes = graph.findAllByState('node', 'selected')
-  selectedNodes.forEach((node) => {
-    const model = node.getModel() as Record<string, unknown>
-    const command = new DeleteNodeCommand(graph, model.id as string)
-    execute(command)
-  })
+  const cmds = buildDeleteCommands(nodeIds, edgeIds)
+  if (cmds.length === 0) return
 
-  emit('update:selectedNodeId', null)
+  execute(new CompositeCommand(cmds, '批量删除'))
+  clearSelection()
+  emit('dataChange', operationQueue.value, currentVersion.value)
 }
 
 // ==================== Expose ====================
@@ -777,6 +901,88 @@ function getAllData(): GraphData {
 }
 
 /**
+ * 批量更新多个节点的属性（如批量改色），聚合为单条组合命令，一次撤销
+ * @param ids 节点 id 列表
+ * @param data 需要更新的节点字段（如 { style: { fill: '#fff' } }）
+ */
+function updateNodes(ids: string[], data: Partial<NodeData>): void {
+  const graph = graphInstance.value
+  if (!graph || ids.length === 0) return
+
+  const cmds = ids
+    .map((id) => {
+      const item = graph.findById(id)
+      if (!item) return null
+      const t = (item as { getType?: () => string }).getType?.()
+      return t === 'edge' ? null : new UpdateNodeCommand(graph, id, data)
+    })
+    .filter((c): c is UpdateNodeCommand => c !== null)
+
+  if (cmds.length === 0) return
+  execute(new CompositeCommand(cmds, '批量更新节点'))
+  emit('dataChange', operationQueue.value, currentVersion.value)
+}
+
+/**
+ * 获取当前选中项（节点 + 边）的完整数据
+ */
+function getSelectedItems(): { nodes: NodeData[]; edges: EdgeData[] } {
+  const graph = graphInstance.value
+  if (!graph) return { nodes: [], edges: [] }
+
+  const nodes: NodeData[] = graph.findAllByState('node', 'selected').map((n) => {
+    const m = n.getModel() as Record<string, unknown>
+    return {
+      id: m.id as string,
+      label: (m.label as string) || '',
+      x: m.x as number | undefined,
+      y: m.y as number | undefined,
+      fx: (m.fx ?? m.x) as number | undefined,
+      fy: (m.fy ?? m.y) as number | undefined,
+      properties: (m.properties as Record<string, unknown>) || {},
+      type: (m.type as string) || RECT_NODE_TYPE,
+      style: (m.style as Record<string, unknown>) || {},
+    }
+  })
+
+  const edges: EdgeData[] = graph.findAllByState('edge', 'selected').map((e) => {
+    const m = e.getModel() as Record<string, unknown>
+    return {
+      id: m.id as string,
+      source: m.source as string,
+      target: m.target as string,
+      type: ((m.type as string) || 'line') as EdgeData['type'],
+      label: (m.label as string) || '',
+      style: (m.style as Record<string, unknown>) || {},
+    }
+  })
+
+  return { nodes, edges }
+}
+
+/**
+ * 在画布客户端坐标处新建节点（用于右键菜单“在此新建节点”）
+ * 将屏幕坐标转换为图坐标后交给 addNode（自动吸附网格、跟随当前形状）
+ * @param clientX 鼠标事件 clientX
+ * @param clientY 鼠标事件 clientY
+ * @returns 新建节点 id
+ */
+function addNodeAtClient(clientX: number, clientY: number): string {
+  const graph = graphInstance.value
+  if (!graph) return ''
+
+  const container = graph.get('container') as HTMLElement
+  const rect = container.getBoundingClientRect()
+  const canvasX = clientX - rect.left
+  const canvasY = clientY - rect.top
+  const point = graph.getPointByCanvas(canvasX, canvasY)
+
+  const id = addNode({ x: point.x, y: point.y })
+  emit('dataChange', operationQueue.value, currentVersion.value)
+  return id
+}
+
+/**
  * 适配视图
  */
 function fitViewExpose(padding?: number | number[]): void {
@@ -823,6 +1029,8 @@ async function clear(): Promise<void> {
 
   clearHistory()
   isEmpty.value = true
+  emit('selectionChange', { nodes: [], edges: [] })
+  emit('update:selectedNodeId', null)
 }
 
 /**
@@ -1079,13 +1287,98 @@ function findPath(startId: string, endId: string): { found: boolean; length: num
   return { found: true, length: nodeIds.length - 1, nodeIds, edgeIds }
 }
 
+/**
+ * 克隆节点（带偏移），新节点固定位置避免布局回弹
+ * @param sourceId 源节点 id
+ * @param offset 新节点相对源节点的像素偏移
+ * @returns 新节点 id
+ */
+function cloneNode(sourceId: string, offset = 40): string {
+  const graph = graphInstance.value
+  if (!graph) return ''
+  const newId = generateId('node')
+  execute(new CloneNodeCommand(graph, sourceId, newId, offset))
+  isEmpty.value = false
+  emit('dataChange', operationQueue.value, currentVersion.value)
+  return newId
+}
+
+/**
+ * 反转边方向（交换 source / target）
+ */
+function reverseEdge(id: string): void {
+  const graph = graphInstance.value
+  if (!graph) return
+  execute(new ReverseEdgeCommand(graph, id))
+  emit('dataChange', operationQueue.value, currentVersion.value)
+}
+
+/**
+ * 固定节点：写入 fx/fy 锁定到当前坐标
+ */
+function pinNode(id: string): void {
+  const graph = graphInstance.value
+  if (!graph) return
+  const item = graph.findById(id)
+  if (!item) return
+  const m = item.getModel() as { x?: number; y?: number }
+  updateNode(id, { fx: m.x, fy: m.y })
+}
+
+/**
+ * 解除固定：清除 fx/fy，使节点可受力导向影响
+ */
+function unpinNode(id: string): void {
+  const graph = graphInstance.value
+  if (!graph) return
+  const item = graph.findById(id)
+  if (!item) return
+  execute(new UpdateNodeCommand(graph, id, { fx: undefined, fy: undefined }))
+  emit('dataChange', operationQueue.value, currentVersion.value)
+}
+
+/**
+ * 批量更新多条边（如切换类型），聚合为单条组合命令，一次撤销
+ */
+function updateEdges(ids: string[], data: Partial<EdgeData>): void {
+  const graph = graphInstance.value
+  if (!graph || ids.length === 0) return
+  const cmds = ids
+    .map((id) => {
+      const item = graph.findById(id)
+      if (!item) return null
+      const t = (item as { getType?: () => string }).getType?.()
+      return t === 'node' ? null : new UpdateEdgeCommand(graph, id, data)
+    })
+    .filter((c): c is UpdateEdgeCommand => c !== null)
+  if (cmds.length === 0) return
+  execute(new CompositeCommand(cmds, '批量更新边'))
+  emit('dataChange', operationQueue.value, currentVersion.value)
+}
+
+/**
+ * 切换网格背景显示
+ */
+function toggleGrid(): void {
+  const graph = graphInstance.value
+  if (!graph) return
+  const container = graph.get('container') as HTMLElement
+  const has = !!container.querySelector('.g6-grid-overlay')
+  setGridVisible(!has)
+}
+
 defineExpose({
   updateNode,
   updateEdge,
   deleteNode,
+  deleteItems,
+  updateNodes,
   addNode,
+  addNodeAtClient,
   addEdge,
   getAllData,
+  getSelectedItems,
+  clearSelection,
   exportImage: exportImageExpose,
   fitView: fitViewExpose,
   undo,
@@ -1098,6 +1391,13 @@ defineExpose({
   searchNode,
   findPath,
   clearPath,
+  cloneNode,
+  reverseEdge,
+  pinNode,
+  unpinNode,
+  selectAll,
+  updateEdges,
+  toggleGrid,
 })
 
 // ==================== Lifecycle ====================

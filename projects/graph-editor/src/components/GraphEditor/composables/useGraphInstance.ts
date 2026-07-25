@@ -53,6 +53,8 @@ export interface UseGraphInstanceReturn {
   exportImage: (config?: { backgroundColor?: string; padding?: number | number[] }) => Promise<string>
   /** 一键力导向：清除固定位置，重新执行力导向布局 */
   forceLayout: () => void
+  /** 动态显示 / 隐藏网格背景 */
+  setGridVisible: (visible: boolean) => void
 }
 
 /**
@@ -286,6 +288,16 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     graph.fitView(30)
   }
 
+  /**
+   * 动态显示 / 隐藏网格背景
+   */
+  function setGridVisible(visible: boolean): void {
+    if (!graphInstance.value) return
+    const container = graphInstance.value.get('container') as HTMLElement
+    if (visible) createGridOverlay(container, 20)
+    else removeGridOverlay(container)
+  }
+
   return {
     graphInstance,
     createGraph,
@@ -295,5 +307,6 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     fitView,
     exportImage,
     forceLayout,
+    setGridVisible,
   }
 }
