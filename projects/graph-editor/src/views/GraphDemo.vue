@@ -135,7 +135,10 @@
       <!-- 侧边栏 -->
       <aside class="graph-demo__sidebar" v-if="mode === 'edit'">
         <div class="graph-demo__sidebar-header">
-          <h3>节点属性</h3>
+          <h3 v-if="selectedCount > 1">已选中 {{ selectedCount }} 项</h3>
+          <h3 v-else-if="isSelectedEdge">边属性</h3>
+          <h3 v-else-if="selectedNodeId">节点属性</h3>
+          <h3 v-else>属性面板</h3>
         </div>
 
         <!-- 多选批量操作面板 -->
@@ -189,8 +192,44 @@
             />
           </div>
 
-          <p style="color: #999; font-size: 13px; padding: 16px 0;">
-            使用上方"边类型"下拉框统一切换所有边的样式
+          <div class="graph-demo__form-group">
+            <label>颜色</label>
+            <input
+              type="color"
+              :value="selectedEdgeStroke"
+              @input="handleEdgeStrokeChange"
+            />
+          </div>
+
+          <div class="graph-demo__form-group">
+            <label>线宽：{{ selectedEdgeLineWidth }}</label>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              step="0.5"
+              :value="selectedEdgeLineWidth"
+              @input="handleEdgeLineWidthChange"
+            />
+          </div>
+
+          <div class="graph-demo__form-toggle">
+            <label>
+              <input type="checkbox" :checked="selectedEdgeDashed" @change="handleEdgeDashedChange" />
+              虚线
+            </label>
+            <label>
+              <input type="checkbox" :checked="selectedEdgeArrow" @change="handleEdgeArrowChange" />
+              显示箭头
+            </label>
+          </div>
+
+          <button class="graph-demo__sidebar-action" @click="handleSidebarReverseEdge">
+            逆转方向
+          </button>
+
+          <p style="color: #999; font-size: 12px;">
+            提示：使用顶部"边类型"可统一切换所有边的线型
           </p>
         </div>
 
@@ -344,8 +383,9 @@
  * 作为组件的使用示例，演示所有功能
  */
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import G6 from '@antv/g6'
 import GraphEditor from '@/components/GraphEditor/GraphEditor.vue'
-import type { NodeData, EdgeData, GraphData } from '@/components/GraphEditor/types/graph'
+import type { NodeData, EdgeData, EdgeStyle, GraphData } from '@/components/GraphEditor/types/graph'
 import type { StorageAdapter } from '@/components/GraphEditor/types/adapter'
 import type { Operation } from '@/components/GraphEditor/types/operations'
 import { applyOperations } from '@/components/GraphEditor/utils/patch'
@@ -604,6 +644,59 @@ const selectedEdgeLabel = computed(() => {
   const edge = allData.edges.find((e) => e.id === selectedNodeId.value)
   return edge?.label || ''
 })
+
+/** 当前选中边的完整样式（renderData 会把默认边样式合并进模型，故通常含默认值） */
+const selectedEdgeStyle = computed<EdgeStyle>(() => {
+  if (!selectedNodeId.value || !graphEditorRef.value) return {}
+  const allData = graphEditorRef.value.getAllData()
+  const edge = allData.edges.find((e) => e.id === selectedNodeId.value)
+  return (edge?.style as EdgeStyle) || {}
+})
+
+const selectedEdgeStroke = computed(() => (selectedEdgeStyle.value.stroke as string) || '#A3B1C6')
+const selectedEdgeLineWidth = computed(() => {
+  const w = selectedEdgeStyle.value.lineWidth as number | undefined
+  return w ?? 1.5
+})
+/** 虚线：lineDash 为非空数组时视为虚线 */
+const selectedEdgeDashed = computed(() => {
+  const ld = selectedEdgeStyle.value.lineDash
+  return Array.isArray(ld) && ld.length > 0
+})
+/** 箭头：endArrow 显式为 false 时关闭，其余（含默认对象 / undefined）均视为显示 */
+const selectedEdgeArrow = computed(() => selectedEdgeStyle.value.endArrow !== false)
+
+/**
+ * 边样式变更：始终发送「当前完整样式 + 增量」，避免持久化（applyOperations 顶层 Object.assign）丢失其它样式键
+ */
+function handleEdgeStyleChange(patch: Partial<EdgeStyle>): void {
+  if (!selectedNodeId.value || !graphEditorRef.value) return
+  const next: EdgeStyle = { ...selectedEdgeStyle.value, ...patch }
+  graphEditorRef.value.updateEdge(selectedNodeId.value, { style: next })
+  isDirty.value = true
+}
+
+function handleEdgeStrokeChange(e: Event): void {
+  handleEdgeStyleChange({ stroke: (e.target as HTMLInputElement).value })
+}
+
+function handleEdgeLineWidthChange(e: Event): void {
+  handleEdgeStyleChange({ lineWidth: Number((e.target as HTMLInputElement).value) })
+}
+
+function handleEdgeDashedChange(e: Event): void {
+  const checked = (e.target as HTMLInputElement).checked
+  handleEdgeStyleChange({ lineDash: checked ? [4, 4] : [] })
+}
+
+function handleEdgeArrowChange(e: Event): void {
+  const checked = (e.target as HTMLInputElement).checked
+  // 开启箭头时复用与默认边一致的三角箭头，填充色跟随当前描边色
+  const arrow = checked
+    ? { path: G6.Arrow.triangle(6, 8, 0), fill: selectedEdgeStroke.value }
+    : false
+  handleEdgeStyleChange({ endArrow: arrow })
+}
 
 /**
  * 节点标签变更
@@ -950,6 +1043,14 @@ function handleContextSetEnd(): void {
   closeContextMenu()
 }
 
+/** 侧栏选中单条边：逆转方向 */
+function handleSidebarReverseEdge(): void {
+  const id = selectedNodeId.value
+  if (!id || !graphEditorRef.value) return
+  graphEditorRef.value.reverseEdge(id)
+  isDirty.value = true
+}
+
 /** 边：反转方向 */
 function handleContextReverse(): void {
   const id = contextMenu.value.id
@@ -1275,6 +1376,24 @@ onBeforeUnmount(() => {
     }
   }
 
+  &__form-toggle {
+    display: flex;
+    gap: 20px;
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #555;
+      cursor: pointer;
+    }
+
+    input[type='checkbox'] {
+      cursor: pointer;
+    }
+  }
+
   &__form-row {
     display: flex;
     gap: 12px;
@@ -1295,6 +1414,27 @@ onBeforeUnmount(() => {
     input[type='range'] {
       width: 100%;
       cursor: pointer;
+    }
+  }
+
+  &__sidebar-action {
+    width: 100%;
+    margin-top: 12px;
+    padding: 9px 12px;
+    background: #f0f2f5;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1f2d3d;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: #e4e7eb;
+    }
+
+    &:active {
+      background: #d8dce1;
     }
   }
 
