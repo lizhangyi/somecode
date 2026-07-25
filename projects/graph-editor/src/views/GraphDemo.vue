@@ -111,6 +111,14 @@
           清除
         </button>
         <span class="graph-demo__search-count" v-if="pathResultText">{{ pathResultText }}</span>
+
+        <div class="graph-demo__divider"></div>
+
+        <!-- tooltip 开关 -->
+        <label class="graph-demo__switch">
+          <input type="checkbox" :checked="showTooltip" @change="handleToggleTooltip" />
+          <span>tooltip</span>
+        </label>
       </div>
     </header>
 
@@ -128,7 +136,9 @@
           @update:selectedNodeId="selectedNodeId = $event"
           @selection-change="handleSelectionChange"
           @contextmenu="handleContextMenu"
+          @node-hover="handleNodeHover"
           @ready="handleReady"
+          :show-node-tooltip="showTooltip"
         />
       </div>
 
@@ -374,6 +384,22 @@
         <button class="graph-demo__context-item" @click="handleContextSetEdgeType('cubic')">切换为折线</button>
       </template>
     </div>
+
+    <!-- 节点悬浮 tooltip（展示备注 properties，pointer-events: none 不拦截画布事件） -->
+    <div
+      v-if="hoverNode"
+      class="graph-demo__tooltip"
+      :style="{ left: hoverNode.x + 14 + 'px', top: hoverNode.y + 14 + 'px' }"
+    >
+      <div class="graph-demo__tooltip-title">{{ hoverNode.label || '节点' }}</div>
+      <div v-if="Object.keys(hoverNode.properties).length" class="graph-demo__tooltip-body">
+        <div v-for="(val, key) in hoverNode.properties" :key="key" class="graph-demo__tooltip-row">
+          <span class="graph-demo__tooltip-key">{{ key }}</span>
+          <span class="graph-demo__tooltip-val">{{ formatProp(val) }}</span>
+        </div>
+      </div>
+      <div v-else class="graph-demo__tooltip-empty">（无备注）</div>
+    </div>
   </div>
 </template>
 
@@ -413,8 +439,20 @@ const contextMenu = ref<{
   id: string | null
 }>({ visible: false, x: 0, y: 0, itemType: 'blank', id: null })
 
+// 节点悬浮 tooltip 状态（坐标用 clientX/clientY，position: fixed）
+const hoverNode = ref<{
+  id: string
+  label: string
+  properties: Record<string, unknown>
+  x: number
+  y: number
+} | null>(null)
+
 /** 网格可见状态（与内核 toggleGrid 同步） */
 const gridVisible = ref(true)
+
+/** tooltip 开关 */
+const showTooltip = ref(true)
 
 // 批量填充色默认值
 const batchFill = ref('#4B7BEC')
@@ -472,6 +510,7 @@ interface PlaygroundState {
   mode: 'edit' | 'display'
   selectedEdgeType: 'line' | 'quadratic' | 'cubic'
   nodeShape: 'rect' | 'circle'
+  showTooltip: boolean
 }
 
 function savePlaygroundState(): void {
@@ -479,6 +518,7 @@ function savePlaygroundState(): void {
     mode: mode.value,
     selectedEdgeType: selectedEdgeType.value,
     nodeShape: nodeShape.value,
+    showTooltip: showTooltip.value,
   }
   localStorage.setItem(PLAYGROUND_STATE_KEY, JSON.stringify(state))
 }
@@ -491,6 +531,7 @@ function loadPlaygroundState(): void {
     if (state.mode) mode.value = state.mode
     if (state.selectedEdgeType) selectedEdgeType.value = state.selectedEdgeType
     if (state.nodeShape) nodeShape.value = state.nodeShape
+    if (typeof state.showTooltip === 'boolean') showTooltip.value = state.showTooltip
   } catch {
     // ignore parse error
   }
@@ -950,6 +991,33 @@ function handleSelectionChange(payload: { nodes: string[]; edges: string[] }): v
 /** 内核右键请求 */
 function handleContextMenu(payload: { x: number; y: number; itemType: 'node' | 'edge' | 'blank'; id: string | null }): void {
   contextMenu.value = { visible: true, ...payload }
+  // 右键时不展示悬浮 tooltip，避免叠加
+  hoverNode.value = null
+}
+
+/** 内核节点悬浮：更新 tooltip 数据（payload 为 null 表示离开节点） */
+function handleNodeHover(payload: {
+  id: string
+  label: string
+  properties: Record<string, unknown>
+  x: number
+  y: number
+} | null): void {
+  hoverNode.value = payload
+}
+
+/** tooltip 开关切换；关闭时立即隐藏当前 tooltip */
+function handleToggleTooltip(): void {
+  showTooltip.value = !showTooltip.value
+  if (!showTooltip.value) hoverNode.value = null
+}
+
+/** 备注字段值格式化：对象/数组转 JSON，其余转字符串 */
+function formatProp(val: unknown): string {
+  if (val === null) return 'null'
+  if (val === undefined) return ''
+  if (typeof val === 'object') return JSON.stringify(val)
+  return String(val)
 }
 
 /** 关闭右键菜单 */
@@ -1117,6 +1185,7 @@ onMounted(() => {
 watch(mode, savePlaygroundState)
 watch(selectedEdgeType, savePlaygroundState)
 watch(nodeShape, savePlaygroundState)
+watch(showTooltip, savePlaygroundState)
 
 onBeforeUnmount(() => {
   window.removeEventListener('click', closeContextMenu)
@@ -1458,6 +1527,24 @@ onBeforeUnmount(() => {
     white-space: nowrap;
   }
 
+  &__switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+
+    input {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      accent-color: #4b7bec;
+    }
+  }
+
   &__prop-row {
     display: flex;
     gap: 4px;
@@ -1570,6 +1657,55 @@ onBeforeUnmount(() => {
     height: 1px;
     background: #e8ecf1;
     margin: 4px 0;
+  }
+
+  &__tooltip {
+    position: fixed;
+    z-index: 1100;
+    max-width: 260px;
+    background: rgba(26, 26, 46, 0.94);
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    pointer-events: none;
+    word-break: break-all;
+  }
+
+  &__tooltip-title {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  &__tooltip-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__tooltip-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  &__tooltip-key {
+    flex: 0 0 auto;
+    color: #9fb3ff;
+    font-weight: 500;
+  }
+
+  &__tooltip-val {
+    flex: 1 1 auto;
+    color: #f0f2f5;
+  }
+
+  &__tooltip-empty {
+    color: rgba(255, 255, 255, 0.6);
   }
 
   &__overlay {
