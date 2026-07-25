@@ -90,6 +90,27 @@
         <span class="graph-demo__search-count" v-if="searchKeyword.trim()">
           {{ searchResultCount }} 个匹配
         </span>
+
+        <div class="graph-demo__divider"></div>
+
+        <!-- 最短路径搜索 -->
+        <span class="graph-demo__label">路径：</span>
+        <select class="graph-demo__select graph-demo__select--sm" v-model="pathStart">
+          <option value="">起点</option>
+          <option v-for="n in nodeOptions" :key="'s-' + n.id" :value="n.id">{{ n.label }}</option>
+        </select>
+        <span class="graph-demo__label">→</span>
+        <select class="graph-demo__select graph-demo__select--sm" v-model="pathEnd">
+          <option value="">终点</option>
+          <option v-for="n in nodeOptions" :key="'e-' + n.id" :value="n.id">{{ n.label }}</option>
+        </select>
+        <button class="graph-demo__btn graph-demo__btn--small" @click="handleFindPath" :disabled="!pathStart || !pathEnd">
+          计算
+        </button>
+        <button class="graph-demo__btn graph-demo__btn--small" @click="handleClearPath" v-if="pathResultText">
+          清除
+        </button>
+        <span class="graph-demo__search-count" v-if="pathResultText">{{ pathResultText }}</span>
       </div>
     </header>
 
@@ -276,6 +297,36 @@ watch(searchKeyword, (kw) => {
   if (!graphEditorRef.value) return
   searchResultCount.value = graphEditorRef.value.searchNode(kw)
 })
+
+// 最短路径搜索
+const pathStart = ref('')
+const pathEnd = ref('')
+const pathResultText = ref('')
+
+/** 节点下拉选项（用于路径起止选择） */
+const nodeOptions = computed(() => {
+  if (!graphEditorRef.value) return []
+  const allData = graphEditorRef.value.getAllData()
+  return allData.nodes.map((n) => ({ id: n.id, label: (n.label as string) || n.id }))
+})
+
+function handleFindPath(): void {
+  if (!graphEditorRef.value || !pathStart.value || !pathEnd.value) return
+  const res = graphEditorRef.value.findPath(pathStart.value, pathEnd.value)
+  if (res.found) {
+    pathResultText.value = `最短路径：${res.length} 跳，经过 ${res.nodeIds.length} 个节点`
+  } else {
+    pathResultText.value = '两节点之间不连通'
+  }
+}
+
+function handleClearPath(): void {
+  if (!graphEditorRef.value) return
+  graphEditorRef.value.clearPath()
+  pathResultText.value = ''
+  pathStart.value = ''
+  pathEnd.value = ''
+}
 
 // 节点数统计
 const nodeCount = ref(3)
@@ -847,6 +898,12 @@ onBeforeUnmount(() => {
     &:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    &--sm {
+      padding: 5px 8px;
+      font-size: 12px;
+      max-width: 140px;
     }
   }
 

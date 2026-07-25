@@ -55,7 +55,7 @@ import {
   useSlots,
   type Ref,
 } from 'vue'
-import type { Graph } from '@antv/g6'
+import type { Graph, Item } from '@antv/g6'
 import { useGraphInstance } from './composables/useGraphInstance'
 import { useCommandManager } from './composables/useCommandManager'
 import {
@@ -947,6 +947,111 @@ function searchNode(keyword: string): number {
   return matched.length
 }
 
+/**
+ * 清除路径高亮（节点 + 边）
+ */
+function clearPath(): void {
+  const graph = graphInstance.value
+  if (!graph) return
+  graph.getNodes().forEach((n) => graph.setItemState(n, 'path-highlight', false))
+  graph.getEdges().forEach((e) => graph.setItemState(e, 'path-highlight', false))
+}
+
+/**
+ * 最短路径搜索：输入起止节点，返回并高亮最短路径上的所有节点与连线
+ * 使用自建 BFS（无额外依赖），按无向图求最短跳数路径
+ */
+function findPath(startId: string, endId: string): { found: boolean; length: number; nodeIds: string[]; edgeIds: string[] } {
+  const graph = graphInstance.value
+  const empty = { found: false, length: 0, nodeIds: [] as string[], edgeIds: [] as string[] }
+  if (!graph || !startId || !endId) return empty
+
+  // 先清除上一次路径高亮
+  clearPath()
+
+  // 起点终点相同：0 跳，仅高亮自身
+  if (startId === endId) {
+    const item = graph.findById(startId)
+    if (item) graph.setItemState(item, 'path-highlight', true)
+    return { found: true, length: 0, nodeIds: [startId], edgeIds: [] }
+  }
+
+  // 先清除上一次路径高亮
+  clearPath()
+
+  // 构建无向邻接表 + 边映射
+  const adj = new Map<string, string[]>()
+  const edgeMap = new Map<string, Item>()
+  graph.getEdges().forEach((e) => {
+    const src = e.getSource().getID() as string
+    const tgt = e.getTarget().getID() as string
+    if (!adj.has(src)) adj.set(src, [])
+    if (!adj.has(tgt)) adj.set(tgt, [])
+    adj.get(src)!.push(tgt)
+    adj.get(tgt)!.push(src)
+    edgeMap.set(`${src}->${tgt}`, e)
+    edgeMap.set(`${tgt}->${src}`, e)
+  })
+
+  if (!adj.has(startId) || !adj.has(endId)) return empty
+
+  // BFS 找最短路径，记录前驱
+  const prev = new Map<string, string>()
+  const visited = new Set<string>([startId])
+  const queue: string[] = [startId]
+  let found = false
+  while (queue.length > 0) {
+    const cur = queue.shift() as string
+    if (cur === endId) {
+      found = true
+      break
+    }
+    const neighbors = adj.get(cur) || []
+    for (const nb of neighbors) {
+      if (!visited.has(nb)) {
+        visited.add(nb)
+        prev.set(nb, cur)
+        queue.push(nb)
+      }
+    }
+  }
+
+  if (!found) return empty
+
+  // 回溯路径节点
+  const nodeIds: string[] = []
+  let step: string | undefined = endId
+  while (step !== undefined) {
+    nodeIds.unshift(step)
+    if (step === startId) break
+    step = prev.get(step)
+  }
+
+  // 高亮路径节点
+  nodeIds.forEach((id) => {
+    const item = graph.findById(id)
+    if (item) graph.setItemState(item, 'path-highlight', true)
+  })
+
+  // 高亮路径连线
+  const edgeIds: string[] = []
+  for (let i = 0; i < nodeIds.length - 1; i++) {
+    const a = nodeIds[i]
+    const b = nodeIds[i + 1]
+    const edge = edgeMap.get(`${a}->${b}`)
+    if (edge) {
+      graph.setItemState(edge, 'path-highlight', true)
+      edgeIds.push(edge.getID() as string)
+    }
+  }
+
+  // 居中到起点（保证路径可见）
+  const startItem = graph.findById(startId)
+  if (startItem) graph.focusItem(startItem, true)
+
+  return { found: true, length: nodeIds.length - 1, nodeIds, edgeIds }
+}
+
 defineExpose({
   updateNode,
   updateEdge,
@@ -963,6 +1068,8 @@ defineExpose({
   forceLayout: forceLayoutExpose,
   setNodeShape,
   searchNode,
+  findPath,
+  clearPath,
 })
 
 // ==================== Lifecycle ====================

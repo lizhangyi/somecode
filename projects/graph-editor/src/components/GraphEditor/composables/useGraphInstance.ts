@@ -245,6 +245,15 @@ export function useGraphInstance(): UseGraphInstanceReturn {
               rects[0].attr('shadowBlur', value ? 14 : 0)
             }
           }
+
+          if (name === 'path-highlight') {
+            const rects = group.findAllByName('node-rect')
+            if (rects.length > 0) {
+              rects[0].attr('shadowColor', value ? '#22C55E' : 'transparent')
+              rects[0].attr('shadowBlur', value ? 16 : 0)
+              rects[0].attr('lineWidth', value ? 3 : 1)
+            }
+          }
         },
 
         getAnchorPoints() {
@@ -420,6 +429,15 @@ export function useGraphInstance(): UseGraphInstanceReturn {
               circles[0].attr('shadowBlur', value ? 14 : 0)
             }
           }
+
+          if (name === 'path-highlight') {
+            const circles = group.findAllByName('node-circle')
+            if (circles.length > 0) {
+              circles[0].attr('shadowColor', value ? '#22C55E' : 'transparent')
+              circles[0].attr('shadowBlur', value ? 16 : 0)
+              circles[0].attr('lineWidth', value ? 3 : 1)
+            }
+          }
         },
 
         getAnchorPoints() {
@@ -496,6 +514,12 @@ export function useGraphInstance(): UseGraphInstanceReturn {
         stroke: '#FFB400',
         lineWidth: 3,
         shadowColor: '#FFB400',
+        shadowBlur: 8,
+      },
+      'path-highlight': {
+        stroke: '#22C55E',
+        lineWidth: 3,
+        shadowColor: '#22C55E',
         shadowBlur: 8,
       },
     }
