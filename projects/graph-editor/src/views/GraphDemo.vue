@@ -5,25 +5,7 @@
       <h1 class="graph-demo__title">GraphEditor 演示</h1>
 
       <div class="graph-demo__controls">
-        <!-- 模式切换 -->
-        <div class="graph-demo__btn-group">
-          <button
-            :class="['graph-demo__btn', { 'graph-demo__btn--active': mode === 'edit' }]"
-            @click="mode = 'edit'"
-          >
-            编辑模式
-          </button>
-          <button
-            :class="['graph-demo__btn', { 'graph-demo__btn--active': mode === 'display' }]"
-            @click="mode = 'display'"
-          >
-            展示模式
-          </button>
-        </div>
-
-        <div class="graph-demo__divider"></div>
-
-        <!-- 工具栏按钮 -->
+        <!-- 编辑操作（与编辑器强相关，留在工具栏） -->
         <button class="graph-demo__btn" @click="handleAddNode" :disabled="mode !== 'edit'">
           + 添加节点
         </button>
@@ -42,83 +24,9 @@
         <button class="graph-demo__btn" @click="handleForceLayout" :disabled="mode !== 'edit'">
           力导向
         </button>
-        <button class="graph-demo__btn" @click="handleExportImage">
-          导出截图
-        </button>
         <button class="graph-demo__btn graph-demo__btn--danger" @click="handleClear">
           清空
         </button>
-
-        <div class="graph-demo__divider"></div>
-
-        <!-- 节点形状 -->
-        <span class="graph-demo__label">节点形状：</span>
-        <select
-          class="graph-demo__select"
-          v-model="nodeShape"
-          :disabled="mode !== 'edit'"
-        >
-          <option value="rect">矩形</option>
-          <option value="circle">圆形</option>
-        </select>
-
-        <div class="graph-demo__divider"></div>
-
-        <!-- 切换所有边的类型 -->
-        <span class="graph-demo__label">边类型：</span>
-        <select
-          class="graph-demo__select"
-          v-model="selectedEdgeType"
-          @change="handleChangeEdgeType"
-          :disabled="mode !== 'edit'"
-        >
-          <option value="line">直线</option>
-          <option value="quadratic">二次贝塞尔</option>
-          <option value="cubic">三次贝塞尔</option>
-        </select>
-
-        <div class="graph-demo__divider"></div>
-
-        <!-- 节点搜索定位 -->
-        <span class="graph-demo__label">搜索：</span>
-        <input
-          class="graph-demo__search"
-          type="text"
-          v-model="searchKeyword"
-          placeholder="输入节点名称"
-        />
-        <span class="graph-demo__search-count" v-if="searchKeyword.trim()">
-          {{ searchResultCount }} 个匹配
-        </span>
-
-        <div class="graph-demo__divider"></div>
-
-        <!-- 最短路径搜索 -->
-        <span class="graph-demo__label">路径：</span>
-        <select class="graph-demo__select graph-demo__select--sm" v-model="pathStart">
-          <option value="">起点</option>
-          <option v-for="n in nodeOptions" :key="'s-' + n.id" :value="n.id">{{ n.label }}</option>
-        </select>
-        <span class="graph-demo__label">→</span>
-        <select class="graph-demo__select graph-demo__select--sm" v-model="pathEnd">
-          <option value="">终点</option>
-          <option v-for="n in nodeOptions" :key="'e-' + n.id" :value="n.id">{{ n.label }}</option>
-        </select>
-        <button class="graph-demo__btn graph-demo__btn--small" @click="handleFindPath" :disabled="!pathStart || !pathEnd">
-          计算
-        </button>
-        <button class="graph-demo__btn graph-demo__btn--small" @click="handleClearPath" v-if="pathResultText">
-          清除
-        </button>
-        <span class="graph-demo__search-count" v-if="pathResultText">{{ pathResultText }}</span>
-
-        <div class="graph-demo__divider"></div>
-
-        <!-- tooltip 开关 -->
-        <label class="graph-demo__switch">
-          <input type="checkbox" :checked="showTooltip" @change="handleToggleTooltip" />
-          <span>tooltip</span>
-        </label>
       </div>
     </header>
 
@@ -143,13 +51,35 @@
       </div>
 
       <!-- 侧边栏 -->
-      <aside class="graph-demo__sidebar" v-if="mode === 'edit'">
-        <div class="graph-demo__sidebar-header">
-          <h3 v-if="selectedCount > 1">已选中 {{ selectedCount }} 项</h3>
-          <h3 v-else-if="isSelectedEdge">边属性</h3>
-          <h3 v-else-if="selectedNodeId">节点属性</h3>
-          <h3 v-else>属性面板</h3>
+      <aside class="graph-demo__sidebar">
+        <!-- 页签切换 -->
+        <div class="graph-demo__tabs">
+          <button
+            :class="['graph-demo__tab', { 'graph-demo__tab--active': activeTab === 'properties' }]"
+            @click="activeTab = 'properties'"
+          >
+            属性
+          </button>
+          <button
+            :class="['graph-demo__tab', { 'graph-demo__tab--active': activeTab === 'more' }]"
+            @click="activeTab = 'more'"
+          >
+            更多
+          </button>
         </div>
+
+        <!-- 属性页签 -->
+        <div v-show="activeTab === 'properties'" class="graph-demo__tab-panel">
+          <div v-if="mode === 'display'" class="graph-demo__sidebar-empty">
+            <p>当前为展示模式，仅可查看画布</p>
+          </div>
+          <template v-else>
+            <div class="graph-demo__sidebar-header">
+              <h3 v-if="selectedCount > 1">已选中 {{ selectedCount }} 项</h3>
+              <h3 v-else-if="isSelectedEdge">边属性</h3>
+              <h3 v-else-if="selectedNodeId">节点属性</h3>
+              <h3 v-else>属性面板</h3>
+            </div>
 
         <!-- 多选批量操作面板 -->
         <div v-if="selectedCount > 1" class="graph-demo__sidebar-batch">
@@ -315,6 +245,99 @@
 
           <button class="graph-demo__btn graph-demo__btn--danger" @click="handleDeleteNode">删除节点</button>
         </div>
+          </template>
+        </div>
+
+        <!-- 更多页签：从工具栏移入的非编辑器强相关功能 -->
+        <div v-show="activeTab === 'more'" class="graph-demo__tab-panel graph-demo__more">
+          <section class="graph-demo__more-section">
+            <h4>编辑模式</h4>
+            <div class="graph-demo__more-row">
+              <button
+                :class="['graph-demo__btn', 'graph-demo__btn--sm', { 'graph-demo__btn--active': mode === 'edit' }]"
+                @click="mode = 'edit'"
+              >
+                编辑模式
+              </button>
+              <button
+                :class="['graph-demo__btn', 'graph-demo__btn--sm', { 'graph-demo__btn--active': mode === 'display' }]"
+                @click="mode = 'display'"
+              >
+                展示模式
+              </button>
+            </div>
+          </section>
+
+          <section class="graph-demo__more-section">
+            <h4>显示设置</h4>
+            <div class="graph-demo__more-row">
+              <span class="graph-demo__label">节点形状：</span>
+              <select class="graph-demo__select" v-model="nodeShape" :disabled="mode !== 'edit'">
+                <option value="rect">矩形</option>
+                <option value="circle">圆形</option>
+              </select>
+            </div>
+            <div class="graph-demo__more-row">
+              <span class="graph-demo__label">边类型：</span>
+              <select
+                class="graph-demo__select"
+                v-model="selectedEdgeType"
+                @change="handleChangeEdgeType"
+                :disabled="mode !== 'edit'"
+              >
+                <option value="line">直线</option>
+                <option value="quadratic">二次贝塞尔</option>
+                <option value="cubic">三次贝塞尔</option>
+              </select>
+            </div>
+            <label class="graph-demo__switch">
+              <input type="checkbox" :checked="showTooltip" @change="handleToggleTooltip" />
+              <span>tooltip</span>
+            </label>
+          </section>
+
+          <section class="graph-demo__more-section">
+            <h4>搜索节点</h4>
+            <input
+              class="graph-demo__search"
+              type="text"
+              v-model="searchKeyword"
+              placeholder="输入节点名称"
+            />
+            <span class="graph-demo__search-count" v-if="searchKeyword.trim()">
+              {{ searchResultCount }} 个匹配
+            </span>
+          </section>
+
+          <section class="graph-demo__more-section">
+            <h4>最短路径</h4>
+            <div class="graph-demo__more-row">
+              <select class="graph-demo__select graph-demo__select--sm" v-model="pathStart">
+                <option value="">起点</option>
+                <option v-for="n in nodeOptions" :key="'s-' + n.id" :value="n.id">{{ n.label }}</option>
+              </select>
+              <span class="graph-demo__label">→</span>
+              <select class="graph-demo__select graph-demo__select--sm" v-model="pathEnd">
+                <option value="">终点</option>
+                <option v-for="n in nodeOptions" :key="'e-' + n.id" :value="n.id">{{ n.label }}</option>
+              </select>
+            </div>
+            <div class="graph-demo__more-row">
+              <button class="graph-demo__btn graph-demo__btn--small" @click="handleFindPath" :disabled="!pathStart || !pathEnd">
+                计算
+              </button>
+              <button class="graph-demo__btn graph-demo__btn--small" @click="handleClearPath" v-if="pathResultText">
+                清除
+              </button>
+              <span class="graph-demo__search-count" v-if="pathResultText">{{ pathResultText }}</span>
+            </div>
+          </section>
+
+          <section class="graph-demo__more-section">
+            <h4>数据</h4>
+            <button class="graph-demo__btn" @click="handleExportImage">导出截图</button>
+          </section>
+        </div>
       </aside>
     </div>
 
@@ -423,6 +446,8 @@ const mode = ref<'edit' | 'display'>('edit')
 const selectedNodeId = ref<string | null>(null)
 const selectedEdgeType = ref<'line' | 'quadratic' | 'cubic'>('line')
 const nodeShape = ref<'rect' | 'circle'>('rect')
+/** 侧栏页签：属性 / 更多 */
+const activeTab = ref<'properties' | 'more'>('properties')
 const exportedImage = ref('')
 const isDirty = ref(false)
 
@@ -1228,23 +1253,6 @@ onBeforeUnmount(() => {
     justify-content: flex-end;
   }
 
-  &__btn-group {
-    display: flex;
-    border: 1px solid #d0d5dd;
-    border-radius: 6px;
-    overflow: hidden;
-
-    .graph-demo__btn {
-      border-radius: 0;
-      border: none;
-      border-right: 1px solid #d0d5dd;
-
-      &:last-child {
-        border-right: none;
-      }
-    }
-  }
-
   &__btn {
     padding: 6px 14px;
     border: 1px solid #d0d5dd;
@@ -1298,12 +1306,6 @@ onBeforeUnmount(() => {
     }
   }
 
-  &__divider {
-    width: 1px;
-    height: 24px;
-    background: #e8ecf1;
-  }
-
   &__select {
     padding: 6px 10px;
     border: 1px solid #d0d5dd;
@@ -1349,8 +1351,72 @@ onBeforeUnmount(() => {
     background: #fff;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
     flex-shrink: 0;
+  }
+
+  &__tabs {
+    display: flex;
+    border-bottom: 1px solid #e8ecf1;
+    flex-shrink: 0;
+  }
+
+  &__tab {
+    flex: 1;
+    padding: 12px 0;
+    border: none;
+    background: #fff;
+    font-size: 14px;
+    color: #666;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+
+    &:hover {
+      color: #1a1a2e;
+    }
+
+    &--active {
+      color: #4b7bec;
+      border-bottom-color: #4b7bec;
+      font-weight: 600;
+    }
+  }
+
+  &__tab-panel {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  &__more {
+    padding: 4px 0;
+  }
+
+  &__more-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f2f5;
+
+    h4 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: #888;
+      font-weight: 600;
+    }
+  }
+
+  &__more-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .graph-demo__search {
+      flex: 1;
+      width: auto;
+    }
   }
 
   &__sidebar-header {
