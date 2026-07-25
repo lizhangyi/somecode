@@ -906,9 +906,12 @@ function searchNode(keyword: string): number {
   const graph = graphInstance.value
   if (!graph) return 0
 
-  // 清除上一次的高亮
+  // 清除上一次的高亮（节点 + 边）
   graph.getNodes().forEach((n) => {
     graph.setItemState(n, 'search-highlight', false)
+  })
+  graph.getEdges().forEach((e) => {
+    graph.setItemState(e, 'search-highlight', false)
   })
 
   const kw = (keyword || '').trim().toLowerCase()
@@ -920,8 +923,21 @@ function searchNode(keyword: string): number {
     return label.toLowerCase().includes(kw)
   })
 
+  // 高亮目标节点 + 其直接相连的一级节点 + 它们之间的连线
+  const highlightSet = new Set<ReturnType<Graph['getNodes']>[number]>()
+  const edgeSet = new Set<ReturnType<Graph['getEdges']>[number]>()
   matched.forEach((n) => {
+    highlightSet.add(n)
+    const neighbors = n.getNeighbors()
+    neighbors.forEach((nb) => highlightSet.add(nb))
+    const edges = n.getEdges()
+    edges.forEach((e) => edgeSet.add(e))
+  })
+  highlightSet.forEach((n) => {
     graph.setItemState(n, 'search-highlight', true)
+  })
+  edgeSet.forEach((e) => {
+    graph.setItemState(e, 'search-highlight', true)
   })
 
   if (matched.length > 0) {

@@ -490,6 +490,16 @@ export function useGraphInstance(): UseGraphInstanceReturn {
       },
     }
 
+    // 边的高亮状态样式（搜索定位时高亮与目标相连的连线）
+    const edgeStateStyles = {
+      'search-highlight': {
+        stroke: '#FFB400',
+        lineWidth: 3,
+        shadowColor: '#FFB400',
+        shadowBlur: 8,
+      },
+    }
+
     // G6 4.x 的 modes 支持字符串和对象混用
     // 注意：create-edge 与 drag-node 冲突，连线功能在 GraphEditor.vue 中手动实现
     const editModes: string[] = [
@@ -518,6 +528,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
       height,
       defaultNode,
       defaultEdge,
+      edgeStateStyles,
       modes: {
         default: isEditMode ? editModes : displayModes,
         display: displayModes,
