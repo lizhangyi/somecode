@@ -28,8 +28,8 @@ export interface ICommand {
   execute(): void
   /** 撤销命令 */
   undo(): void
-  /** 将命令转换为持久化 Operation */
-  toOperation(): Operation
+  /** 将命令转换为持久化 Operation（批量命令可返回多条） */
+  toOperation(): Operation | Operation[]
   /** 命令描述（用于调试） */
   description: string
 }

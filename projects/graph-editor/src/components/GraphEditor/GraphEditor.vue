@@ -65,10 +65,11 @@ import {
   AddEdgeCommand,
   DeleteEdgeCommand,
   UpdateEdgeCommand,
+  CompositeCommand,
 } from './composables/commands'
 import { useGraphSync } from './composables/useGraphSync'
 import { generateId } from './utils/idGenerator'
-import type { NodeData, EdgeData, GraphData } from './types/graph'
+import type { NodeData, EdgeData, GraphData, EdgeType } from './types/graph'
 import type { StorageAdapter } from './types/adapter'
 
 // ==================== Props ====================
@@ -898,6 +899,31 @@ function setNodeShape(shape: 'rect' | 'circle'): void {
 }
 
 /**
+ * 切换画布上所有边的类型（直线 / 二次贝塞尔 / 三次贝塞尔）
+ * 将本次真正发生变化的边聚合为一条组合命令：
+ * - 一次撤销即可还原全部边类型
+ * - 组合命令的 toOperation 展开为每条边的 update 操作，保证同步/持久化覆盖所有变更
+ * @param type 目标边类型
+ */
+function setEdgeType(type: EdgeType): void {
+  const graph = graphInstance.value
+  if (!graph) return
+
+  const subCommands: UpdateEdgeCommand[] = []
+  graph.getEdges().forEach((edge) => {
+    const model = edge.getModel() as { id?: string; type?: EdgeType }
+    // 仅对类型真正发生变化的边生成子命令，避免产生无意义的空操作
+    if (model.id && model.type !== type) {
+      subCommands.push(new UpdateEdgeCommand(graph, model.id, { type }))
+    }
+  })
+
+  if (subCommands.length === 0) return
+  const command = new CompositeCommand(subCommands, `批量切换边类型: ${type}`)
+  execute(command)
+}
+
+/**
  * 搜索节点：按标签模糊匹配，高亮命中节点并居中到第一个匹配项
  * @param keyword 搜索关键字
  * @returns 匹配到的节点数量
@@ -1067,6 +1093,7 @@ defineExpose({
   refresh,
   forceLayout: forceLayoutExpose,
   setNodeShape,
+  setEdgeType,
   searchNode,
   findPath,
   clearPath,

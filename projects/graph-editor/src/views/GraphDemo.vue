@@ -727,14 +727,7 @@ async function handleClear(): Promise<void> {
 function handleChangeEdgeType(): void {
   if (!graphEditorRef.value) return
 
-  const data = graphEditorRef.value.getAllData()
-
-  data.edges.forEach((e) => {
-    graphEditorRef.value!.updateEdge(e.id, {
-      type: selectedEdgeType.value,
-    })
-  })
-
+  graphEditorRef.value.setEdgeType(selectedEdgeType.value)
   isDirty.value = true
 }
 

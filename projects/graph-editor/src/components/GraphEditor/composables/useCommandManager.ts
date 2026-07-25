@@ -44,6 +44,27 @@ export function useCommandManager(): UseCommandManagerReturn {
   }
 
   /**
+   * 将命令产生的操作（可能是单条或批量）推入同步队列
+   */
+  function pushOperations(op: Operation | Operation[]): void {
+    if (Array.isArray(op)) operationQueue.value.push(...op)
+    else operationQueue.value.push(op)
+  }
+
+  /**
+   * 生成反向操作（用于撤销时同步持久化）
+   */
+  function reverseOperations(op: Operation | Operation[]): Operation[] {
+    const list = Array.isArray(op) ? op : [op]
+    return list.map((reverseOp) => ({
+      ...reverseOp,
+      op: reverseOp.op === 'add' ? 'delete'
+        : reverseOp.op === 'delete' ? 'add'
+        : 'update',
+    }))
+  }
+
+  /**
    * 执行命令
    */
   function execute(command: ICommand): void {
@@ -57,7 +78,7 @@ export function useCommandManager(): UseCommandManagerReturn {
     }
 
     state.redoStack = []
-    operationQueue.value.push(command.toOperation())
+    pushOperations(command.toOperation())
     hasPendingChanges.value = true
     updateState()
   }
@@ -72,11 +93,8 @@ export function useCommandManager(): UseCommandManagerReturn {
     entry.command.undo()
     state.redoStack.push(entry)
 
-    const reverseOp = entry.command.toOperation()
-    reverseOp.op = reverseOp.op === 'add' ? 'delete'
-      : reverseOp.op === 'delete' ? 'add'
-      : 'update'
-    operationQueue.value.push(reverseOp)
+    // 把反向操作入队以便持久化（批量命令展开为多条）
+    operationQueue.value.push(...reverseOperations(entry.command.toOperation()))
     updateState()
   }
 
@@ -89,7 +107,7 @@ export function useCommandManager(): UseCommandManagerReturn {
     const entry = state.redoStack.pop()!
     entry.command.execute()
     state.undoStack.push(entry)
-    operationQueue.value.push(entry.command.toOperation())
+    pushOperations(entry.command.toOperation())
     updateState()
   }
 
