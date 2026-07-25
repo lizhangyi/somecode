@@ -48,8 +48,8 @@ const adapter: StorageAdapter = {
   },
 }
 
-function handleNodeClick(data: NodeData) {
-  console.log('点击节点:', data)
+function handleNodeClick(data: NodeData, shift: boolean) {
+  console.log('点击节点:', data, '是否 Shift 多选:', shift)
 }
 
 function handleReady(graph: unknown) {
@@ -78,7 +78,7 @@ function handleReady(graph: unknown) {
 
 | 事件 | 参数 | 说明 |
 |------|------|------|
-| `nodeClick` | `data: NodeData` | 节点点击 |
+| `nodeClick` | `(data: NodeData, shift: boolean)` | 节点点击，`shift` 为 true 表示本次是 Shift 多选点击，外壳可据此维护点击顺序以决定边方向 |
 | `update:selectedNodeId` | `id: string \| null` | v-model 绑定；**仅单选时回填，多选 / 含边时为 `null`** |
 | `selectionChange` | `{ nodes: string[]; edges: string[] }` | 选择集合变化（节点 + 边 id 列表），用于外壳批量操作 UI |
 | `contextmenu` | `{ x: number; y: number; itemType: 'node' \| 'edge' \| 'blank'; id: string \| null }` | 右键请求；坐标为浏览器 `client` 坐标，外壳据此渲染浮动菜单 |
@@ -107,8 +107,8 @@ function handleReady(graph: unknown) {
 
 | 方法 | 参数 | 返回值 | 说明 |
 |------|------|--------|------|
-| `addEdge(data)` | `Partial<EdgeData> & { source: string; target: string }` | `string` | 添加边 |
-| `updateEdge(id, data)` | `string, Partial<EdgeData>` | `void` | 更新单条边（type / label / **style**：stroke · lineWidth · lineDash · endArrow） |
+| `addEdge(data)` | `Partial<EdgeData> & { source: string; target: string }` | `string` | 添加边。**两点间同方向只允许一条**（已存在则直接返回其 id、不重复添加）；已存在反向边时**不新增**，而是把该反向边改为双向箭头（加 `startArrow`）后返回其 id；无任何改动返回 `''` |
+| `updateEdge(id, data)` | `string, Partial<EdgeData>` | `void` | 更新单条边（type / label / **style**：stroke · lineWidth · lineDash · endArrow · startArrow） |
 | `updateEdges(ids, data)` | `string[], Partial<EdgeData>` | `void` | 批量更新边，聚合为一条组合命令，**一次撤销** |
 | `reverseEdge(id)` | `string` | `void` | 反转边方向（交换 source / target） |
 
