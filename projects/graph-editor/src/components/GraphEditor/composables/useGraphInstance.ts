@@ -88,10 +88,10 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
           const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
 
-          // 计算文字宽度
-          const textWidth = Math.max(label.length * 14 + 24, 80)
+          // 节点尺寸：size 控制矩形高度，宽度取文字宽与高度较大者（避免过窄）
+          const rectHeight = (nodeStyle.size as number) || 40
+          const textWidth = Math.max(label.length * 14 + 24, rectHeight)
           const rectWidth = textWidth
-          const rectHeight = 40
           const radius = 8
 
           // 圆角矩形
@@ -161,9 +161,10 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           if (!group) return
 
           const model = cfg as Record<string, unknown>
+          const nodeStyle = (model.style as Record<string, unknown>) || {}
           const label = (model.label as string) || ''
-          const textWidth = Math.max(label.length * 14 + 24, 80)
-          const rectHeight = 40
+          const rectHeight = (nodeStyle.size as number) || 40
+          const textWidth = Math.max(label.length * 14 + 24, rectHeight)
 
           // 更新矩形尺寸
           const rects = group.findAllByName('node-rect')
@@ -221,7 +222,10 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           if (name === 'selected') {
             const rects = group.findAllByName('node-rect')
             if (rects.length > 0) {
-              rects[0].attr('stroke', value ? '#FF6B35' : '#3B6BDB')
+              const model = item?.getModel() as Record<string, unknown>
+              const style = (model.style as Record<string, unknown>) || {}
+              const baseStroke = (style.stroke as string) || DEFAULT_NODE_STYLE.stroke
+              rects[0].attr('stroke', value ? '#FF6B35' : baseStroke)
               rects[0].attr('lineWidth', value ? 3 : 2)
             }
           }
@@ -247,8 +251,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
     if (isCircleNodeRegistered) return
     isCircleNodeRegistered = true
 
-    const CIRCLE_RADIUS = 25
-    const TEXT_OFFSET = CIRCLE_RADIUS + 8
+    // 圆形半径 / 文字偏移由 node.style.size 动态计算（见 draw / update）
 
     G6.registerNode(
       CIRCLE_NODE_TYPE,
@@ -260,12 +263,16 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           const fill = (nodeStyle.fill as string) || DEFAULT_NODE_STYLE.fill
           const stroke = (nodeStyle.stroke as string) || DEFAULT_NODE_STYLE.stroke
 
+          // 节点尺寸：size 控制圆形直径
+          const radius = ((nodeStyle.size as number) || 50) / 2
+          const textOffset = radius + 8
+
           // 圆形主体
           const circle = group.addShape('circle', {
             attrs: {
               x: 0,
               y: 0,
-              r: CIRCLE_RADIUS,
+              r: radius,
               fill,
               stroke,
               lineWidth: 2,
@@ -278,7 +285,7 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           group.addShape('text', {
             attrs: {
               x: 0,
-              y: TEXT_OFFSET,
+              y: textOffset,
               text: label,
               fontSize: 13,
               fontFamily: 'sans-serif',
@@ -292,10 +299,10 @@ export function useGraphInstance(): UseGraphInstanceReturn {
 
           // 四个锚点圆圈
           const anchorPositions = [
-            { name: 'anchor-top', x: 0, y: -CIRCLE_RADIUS },
-            { name: 'anchor-bottom', x: 0, y: CIRCLE_RADIUS },
-            { name: 'anchor-left', x: -CIRCLE_RADIUS, y: 0 },
-            { name: 'anchor-right', x: CIRCLE_RADIUS, y: 0 },
+            { name: 'anchor-top', x: 0, y: -radius },
+            { name: 'anchor-bottom', x: 0, y: radius },
+            { name: 'anchor-left', x: -radius, y: 0 },
+            { name: 'anchor-right', x: radius, y: 0 },
           ]
 
           anchorPositions.forEach((ap) => {
@@ -322,15 +329,38 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           if (!group) return
 
           const model = cfg as Record<string, unknown>
+          const nodeStyle = (model.style as Record<string, unknown>) || {}
           const label = (model.label as string) || ''
+          const radius = ((nodeStyle.size as number) || 50) / 2
+          const textOffset = radius + 8
 
-          // 更新文字
-          const texts = group.findAllByName('node-label')
-          texts.forEach((text) => {
-            text.attr('text', label)
+          // 更新圆形尺寸
+          const circles = group.findAllByName('node-circle')
+          circles.forEach((circle) => {
+            circle.attr('r', radius)
           })
 
-          return group.findAllByName('node-circle')[0]
+          // 更新文字内容（只改 text，不新建 shape）
+          const texts = group.findAllByName('node-label')
+          texts.forEach((text) => {
+            text.attr({ text: label, y: textOffset })
+          })
+
+          // 更新锚点位置
+          const anchorPositions = [
+            { name: 'anchor-top', x: 0, y: -radius },
+            { name: 'anchor-bottom', x: 0, y: radius },
+            { name: 'anchor-left', x: -radius, y: 0 },
+            { name: 'anchor-right', x: radius, y: 0 },
+          ]
+          anchorPositions.forEach((ap) => {
+            const shapes = group.findAllByName(ap.name)
+            shapes.forEach((shape) => {
+              shape.attr({ x: ap.x, y: ap.y })
+            })
+          })
+
+          return circles[0]
         },
 
         setState(name, value, item) {
@@ -351,7 +381,10 @@ export function useGraphInstance(): UseGraphInstanceReturn {
           if (name === 'selected') {
             const circles = group.findAllByName('node-circle')
             if (circles.length > 0) {
-              circles[0].attr('stroke', value ? '#FF6B35' : '#3B6BDB')
+              const model = item?.getModel() as Record<string, unknown>
+              const style = (model.style as Record<string, unknown>) || {}
+              const baseStroke = (style.stroke as string) || DEFAULT_NODE_STYLE.stroke
+              circles[0].attr('stroke', value ? '#FF6B35' : baseStroke)
               circles[0].attr('lineWidth', value ? 3 : 2)
             }
           }

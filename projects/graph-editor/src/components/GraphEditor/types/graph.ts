@@ -9,6 +9,8 @@ export interface NodeStyle {
   stroke?: string
   lineWidth?: number
   radius?: number
+  /** 节点尺寸：矩形表示高度，圆形表示直径 */
+  size?: number
   [key: string]: unknown
 }
 

@@ -153,6 +153,36 @@
             />
           </div>
 
+          <div class="graph-demo__form-row">
+            <div class="graph-demo__form-group">
+              <label>填充色</label>
+              <input
+                type="color"
+                :value="selectedNodeFill"
+                @input="handleStyleInput($event, 'fill')"
+              />
+            </div>
+            <div class="graph-demo__form-group">
+              <label>边框色</label>
+              <input
+                type="color"
+                :value="selectedNodeStroke"
+                @input="handleStyleInput($event, 'stroke')"
+              />
+            </div>
+          </div>
+
+          <div class="graph-demo__form-group">
+            <label>尺寸：{{ selectedNodeSize }}{{ nodeShape === 'circle' ? ' (直径)' : ' (高度)' }}</label>
+            <input
+              type="range"
+              min="30"
+              max="120"
+              :value="selectedNodeSize"
+              @input="handleStyleInput($event, 'size')"
+            />
+          </div>
+
           <div class="graph-demo__form-group">
             <label>自定义属性 (properties)</label>
             <div
@@ -387,6 +417,22 @@ const selectedNodeProperties = computed(() => {
   return node?.properties || {}
 })
 
+/** 当前选中节点的样式（含默认兜底） */
+const selectedNodeStyle = computed<Record<string, unknown>>(() => {
+  if (!selectedNodeId.value || !graphEditorRef.value) return {}
+  const allData = graphEditorRef.value.getAllData()
+  const node = allData.nodes.find((n) => n.id === selectedNodeId.value)
+  return (node?.style as Record<string, unknown>) || {}
+})
+
+const selectedNodeFill = computed(() => (selectedNodeStyle.value.fill as string) || '#4B7BEC')
+const selectedNodeStroke = computed(() => (selectedNodeStyle.value.stroke as string) || '#3B6BDB')
+const selectedNodeSize = computed(() => {
+  const s = selectedNodeStyle.value.size as number | undefined
+  if (s) return s
+  return nodeShape.value === 'circle' ? 50 : 40
+})
+
 /** 当前选中边的名称 */
 const selectedEdgeLabel = computed(() => {
   if (!selectedNodeId.value || !graphEditorRef.value) return ''
@@ -402,6 +448,21 @@ function handleLabelChange(e: Event): void {
   const value = (e.target as HTMLInputElement).value
   if (!selectedNodeId.value || !graphEditorRef.value) return
   graphEditorRef.value.updateNode(selectedNodeId.value, { label: value })
+  isDirty.value = true
+}
+
+/**
+ * 节点样式变更（填充色 / 边框色 / 尺寸）
+ */
+function handleStyleInput(e: Event, key: 'fill' | 'stroke' | 'size'): void {
+  const el = e.target as HTMLInputElement
+  const value = key === 'size' ? Number(el.value) : el.value
+  handleStyleChange({ [key]: value } as { fill?: string; stroke?: string; size?: number })
+}
+
+function handleStyleChange(patch: { fill?: string; stroke?: string; size?: number }): void {
+  if (!selectedNodeId.value || !graphEditorRef.value) return
+  graphEditorRef.value.updateNode(selectedNodeId.value, { style: patch })
   isDirty.value = true
 }
 
@@ -884,6 +945,29 @@ onBeforeUnmount(() => {
         background: #f5f5f5;
         color: #999;
       }
+    }
+  }
+
+  &__form-row {
+    display: flex;
+    gap: 12px;
+
+    > div {
+      flex: 1;
+    }
+
+    input[type='color'] {
+      width: 100%;
+      height: 36px;
+      padding: 2px;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    input[type='range'] {
+      width: 100%;
+      cursor: pointer;
     }
   }
 

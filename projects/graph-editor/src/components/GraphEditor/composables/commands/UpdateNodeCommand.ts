@@ -32,6 +32,7 @@ export class UpdateNodeCommand implements ICommand {
       fx: (model.fx ?? model.x) as number | undefined,
       fy: (model.fy ?? model.y) as number | undefined,
       properties: cloneDeep((model.properties as Record<string, unknown>) || {}),
+      style: cloneDeep((model.style as Record<string, unknown>) || {}),
     }
 
     const update: Record<string, unknown> = {}
@@ -41,6 +42,9 @@ export class UpdateNodeCommand implements ICommand {
     if (this.newData.fx !== undefined) update.fx = this.newData.fx
     if (this.newData.fy !== undefined) update.fy = this.newData.fy
     if (this.newData.properties !== undefined) update.properties = this.newData.properties
+    if (this.newData.style) {
+      update.style = { ...(model.style as Record<string, unknown>), ...this.newData.style }
+    }
 
     this.graph.updateItem(nodeItem, update)
   }
@@ -56,6 +60,7 @@ export class UpdateNodeCommand implements ICommand {
     if (this.oldData.fx !== undefined) update.fx = this.oldData.fx
     if (this.oldData.fy !== undefined) update.fy = this.oldData.fy
     if (this.oldData.properties !== undefined) update.properties = this.oldData.properties
+    if (this.oldData.style) update.style = this.oldData.style
 
     this.graph.updateItem(nodeItem, update)
   }
