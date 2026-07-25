@@ -72,6 +72,7 @@ function handleReady(graph: unknown) {
 | `showZoomControls` | `boolean` | `true` | - | 是否显示缩放控件 |
 | `gridSize` | `number` | `20` | - | 网格大小（px）；`0` 关闭网格；新建节点坐标自动吸附 |
 | `nodeShape` | `'rect' \| 'circle'` | `'rect'` | - | 默认节点形状（全局统一）；新建节点跟随此形状 |
+| `showTooltip` | `boolean` | `true` | - | 是否启用 tooltip（悬浮节点展示 `properties`） |
 
 ## Emits
 
