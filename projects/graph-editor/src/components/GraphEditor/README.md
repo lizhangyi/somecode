@@ -63,37 +63,91 @@ function handleReady(graph: unknown) {
 | Prop | 类型 | 默认值 | 必填 | 说明 |
 |------|------|--------|------|------|
 | `mode` | `'edit' \| 'display'` | - | ✅ | 编辑模式 / 展示模式 |
-| `storage` | `StorageAdapter` | - | ✅ | 存储适配器 |
-| `selectedNodeId` | `string \| null` | `null` | - | 选中节点 ID（支持 v-model） |
+| `storage` | `StorageAdapter` | - | ✅ | 存储适配器，负责 `load` / `save` 增量操作 |
+| `layout` | `Record<string, unknown>` | force 布局 | - | 自定义力导向布局配置 |
+| `nodeKey` | `string` | `'id'` | - | 节点唯一键字段名 |
+| `defaultData` | `GraphData` | - | - | 默认初始数据（首次加载无存储数据时使用） |
+| `selectedNodeId` | `string \| null` | `null` | - | 选中节点 ID（支持 `v-model:selected-node-id`） |
 | `showMinimap` | `boolean` | `true` | - | 是否显示缩略图 |
 | `showZoomControls` | `boolean` | `true` | - | 是否显示缩放控件 |
-| `layout` | `object` | force 布局 | - | 自定义布局配置 |
-| `defaultData` | `GraphData` | - | - | 默认初始数据 |
+| `gridSize` | `number` | `20` | - | 网格大小（px）；`0` 关闭网格；新建节点坐标自动吸附 |
+| `nodeShape` | `'rect' \| 'circle'` | `'rect'` | - | 默认节点形状（全局统一）；新建节点跟随此形状 |
 
 ## Emits
 
 | 事件 | 参数 | 说明 |
 |------|------|------|
 | `nodeClick` | `data: NodeData` | 节点点击 |
-| `update:selectedNodeId` | `id: string \| null` | v-model 绑定 |
-| `dataChange` | `(operations, version?)` | 数据变更 |
-| `ready` | `graphInstance` | 图实例就绪 |
+| `update:selectedNodeId` | `id: string \| null` | v-model 绑定；**仅单选时回填，多选 / 含边时为 `null`** |
+| `selectionChange` | `{ nodes: string[]; edges: string[] }` | 选择集合变化（节点 + 边 id 列表），用于外壳批量操作 UI |
+| `contextmenu` | `{ x: number; y: number; itemType: 'node' \| 'edge' \| 'blank'; id: string \| null }` | 右键请求；坐标为浏览器 `client` 坐标，外壳据此渲染浮动菜单 |
+| `dataChange` | `operations: Operation[]; version?: number` | 数据变更，携带增量操作与版本号 |
+| `ready` | `graphInstance: Graph` | 图实例就绪 |
 | `loading` | `status: boolean` | 加载状态 |
 
-## Expose（父组件调用方法）
+## Expose API（父组件通过 `ref` 调用）
+
+所有写操作均经过命令系统，**可撤销 / 重做**，并自动触发增量保存（emit `dataChange`）。
+
+### 节点操作
 
 | 方法 | 参数 | 返回值 | 说明 |
 |------|------|--------|------|
-| `addNode(data)` | `Partial<NodeData>` | `string` (节点 ID) | 添加节点 |
-| `updateNode(id, data)` | `string, Partial<NodeData>` | `void` | 更新节点 |
-| `deleteNode(id)` | `string` | `void` | 删除节点 |
-| `getAllData()` | - | `GraphData` | 获取所有数据 |
-| `fitView(padding?)` | `number \| number[]` | `void` | 居中视图 |
-| `undo()` | - | `void` | 撤销 |
-| `redo()` | - | `void` | 重做 |
-| `clear()` | - | `void` | 清空画布 |
-| `refresh()` | - | `void` | 刷新画布 |
-| `exportImage(config?)` | `{ backgroundColor?, padding? }` | `Promise<string>` | 导出 PNG |
+| `addNode(data)` | `Partial<NodeData> & { id?: string }` | `string` | 添加节点；坐标自动吸附 `gridSize`，形状跟随 `nodeShape` |
+| `addNodeAtClient(clientX, clientY)` | `number, number` | `string` | 在画布**浏览器坐标**处新建节点（右键"在此新建"使用） |
+| `updateNode(id, data)` | `string, Partial<NodeData>` | `void` | 更新单个节点（label / x / y / fx / fy / properties / style） |
+| `updateNodes(ids, data)` | `string[], Partial<NodeData>` | `void` | 批量更新节点，聚合为一条组合命令，**一次撤销** |
+| `deleteNode(id)` | `string` | `void` | 删除节点（连带其关联边一并删除） |
+| `cloneNode(sourceId, offset?)` | `string, number = 40` | `string` | 克隆节点（带偏移），返回新节点 id |
+| `pinNode(id)` | `string` | `void` | 固定节点到当前坐标（写入 fx/fy，不再受力导向影响） |
+| `unpinNode(id)` | `string` | `void` | 解除固定，使节点重新受力导向布局影响 |
+
+### 边操作
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `addEdge(data)` | `Partial<EdgeData> & { source: string; target: string }` | `string` | 添加边 |
+| `updateEdge(id, data)` | `string, Partial<EdgeData>` | `void` | 更新单条边（type / label / **style**：stroke · lineWidth · lineDash · endArrow） |
+| `updateEdges(ids, data)` | `string[], Partial<EdgeData>` | `void` | 批量更新边，聚合为一条组合命令，**一次撤销** |
+| `reverseEdge(id)` | `string` | `void` | 反转边方向（交换 source / target） |
+
+### 选择 / 批量
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `selectAll()` | - | `void` | 选中全部节点与边（Ctrl+A） |
+| `clearSelection()` | - | `void` | 清空选择（Esc / 点击空白） |
+| `getSelectedItems()` | - | `{ nodes: NodeData[]; edges: EdgeData[] }` | 获取选中项完整数据 |
+| `deleteItems(ids)` | `string[]` | `void` | 删除混合 id 列表（节点 + 边，自动去重）；聚合为组合命令，**一次撤销** |
+
+### 形状 / 样式（全局）
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `setNodeShape(shape)` | `'rect' \| 'circle'` | `void` | 全局切换节点形状（重渲染所有节点） |
+| `setEdgeType(type)` | `'line' \| 'quadratic' \| 'cubic'` | `void` | 全局切换所有边类型；仅对类型变化的边生成命令，**一次撤销** |
+
+### 搜索 / 路径
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `searchNode(keyword)` | `string` | `number` | 按 label 模糊搜索；高亮匹配节点及其一跳邻居，居中首条；返回匹配数 |
+| `findPath(startId, endId)` | `string, string` | `{ found: boolean; length: number; nodeIds: string[]; edgeIds: string[] }` | BFS 最短路径并高亮；起点 = 终点记为 0 跳 |
+| `clearPath()` | - | `void` | 清除路径高亮 |
+
+### 视图 / 历史 / 导出
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `getAllData()` | - | `GraphData` | 获取当前全量数据（含节点 / 边的 style） |
+| `fitView(padding?)` | `number \| number[]` | `void` | 居中适配视图 |
+| `forceLayout()` | - | `void` | 清除所有固定位置后重新力导向布局 |
+| `undo()` | - | `void` | 撤销（Ctrl+Z） |
+| `redo()` | - | `void` | 重做（Ctrl+Y） |
+| `clear()` | - | `Promise<void>` | 清空画布（先持久化再清历史） |
+| `refresh()` | - | `Promise<void>` | 重新加载数据（销毁并重初始化） |
+| `exportImage(config?)` | `{ backgroundColor?: string; padding?: number \| number[] }` | `Promise<string>` | 导出当前画布为 PNG，返回 dataURL |
+| `toggleGrid()` | - | `void` | 切换网格背景显示 |
 
 ## StorageAdapter 示例
 
@@ -164,7 +218,16 @@ GraphEditor/
 ├── composables/
 │   ├── useGraphInstance.ts  # G6 实例管理
 │   ├── useCommandManager.ts # 命令模式（撤销/重做）
-│   └── useGraphSync.ts      # 数据同步（防抖/重试）
+│   ├── useGraphSync.ts      # 数据同步（防抖/重试）
+│   ├── graphConfig.ts       # 节点/边类型、默认样式、布局、模式常量
+│   ├── gridOverlay.ts       # 网格背景叠加层
+│   ├── registerGraphNodes.ts# 内置 rect/circle 节点注册（含锚点/状态）
+│   └── commands/            # 命令模式实现
+│       ├── ICommand.ts      # 命令接口
+│       ├── AddNodeCommand.ts / DeleteNodeCommand.ts
+│       ├── UpdateNodeCommand.ts / AddEdgeCommand.ts / DeleteEdgeCommand.ts / UpdateEdgeCommand.ts
+│       ├── CloneNodeCommand.ts / ReverseEdgeCommand.ts
+│       └── CompositeCommand.ts # 组合命令（批量一次撤销）
 ├── types/
 │   ├── graph.ts             # 图数据类型
 │   ├── operations.ts        # 操作与命令类型
