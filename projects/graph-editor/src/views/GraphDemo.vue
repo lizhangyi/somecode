@@ -1250,7 +1250,7 @@ onBeforeUnmount(() => {
     gap: 8px;
     flex-wrap: wrap;
     flex: 1;
-    justify-content: flex-end;
+    justify-content: center;
   }
 
   &__btn {
